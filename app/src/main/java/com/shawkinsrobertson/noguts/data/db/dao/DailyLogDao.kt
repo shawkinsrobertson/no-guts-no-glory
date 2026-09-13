@@ -32,6 +32,9 @@ interface DailyLogDao {
     @Query("SELECT * FROM daily_logs WHERE date BETWEEN :start AND :end ORDER BY date ASC")
     suspend fun getBetween(start: LocalDate, end: LocalDate): List<DailyLogEntity>
 
+    @Query("SELECT COUNT(*) FROM daily_logs WHERE date BETWEEN :start AND :end AND status = 'LOGGED'")
+    suspend fun countLoggedBetween(start: LocalDate, end: LocalDate): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(entity: DailyLogEntity): Long
 

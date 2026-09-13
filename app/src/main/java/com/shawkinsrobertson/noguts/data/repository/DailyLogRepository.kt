@@ -4,6 +4,7 @@ import com.shawkinsrobertson.noguts.data.datastore.UserPreferencesRepository
 import com.shawkinsrobertson.noguts.data.db.dao.DailyLogDao
 import com.shawkinsrobertson.noguts.data.db.dao.DailyLogFactorDao
 import com.shawkinsrobertson.noguts.data.db.dao.DailyLogWithFactorEntities
+import com.shawkinsrobertson.noguts.data.db.dao.FactorSelectionStat
 import com.shawkinsrobertson.noguts.data.db.dao.ScoreSnapshotDao
 import com.shawkinsrobertson.noguts.data.db.entity.DailyLogEntity
 import com.shawkinsrobertson.noguts.data.db.entity.DailyLogFactorEntity
@@ -55,6 +56,12 @@ class DailyLogRepository(
         scoreSnapshotDao.observeRecent(limit)
 
     fun observeLatestSnapshot(): Flow<ScoreSnapshotEntity?> = scoreSnapshotDao.observeLatest()
+
+    suspend fun getSelectionStatsSince(date: LocalDate): List<FactorSelectionStat> =
+        dailyLogFactorDao.getSelectionStatsSince(date)
+
+    suspend fun countLoggedBetween(start: LocalDate, end: LocalDate): Int =
+        dailyLogDao.countLoggedBetween(start, end)
 
     /** Saves (or overwrites) [date]'s log, then recalculates and stores its score snapshot. */
     suspend fun saveDailyLog(date: LocalDate, inputs: List<FactorLogInput>, notes: String?) {
