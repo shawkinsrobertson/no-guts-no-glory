@@ -9,14 +9,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.installSplashScreen
 import com.shawkinsrobertson.noguts.data.datastore.ThemeMode
-import com.shawkinsrobertson.noguts.data.datastore.UserProfile
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.navigation.NoGutsNavHost
+import com.shawkinsrobertson.noguts.ui.splash.BrandedLoadingScreen
 import com.shawkinsrobertson.noguts.ui.theme.NoGutsTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must run before super.onCreate() per the SplashScreen API contract. The system
+        // splash it configures (Theme.NoGutsNoGlory.Starting) only ever shows the icon on
+        // a background; the full branded screen below is this app's own first frame,
+        // shown the moment Compose takes over.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
@@ -25,14 +31,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             val profile by container.userPreferencesRepository.profile
                 .collectAsState(initial = null)
+            val loadedProfile = profile
 
             CompositionLocalProvider(LocalAppContainer provides container) {
-                NoGutsTheme(themeMode = profile?.theme ?: ThemeMode.SYSTEM) {
+                NoGutsTheme(themeMode = loadedProfile?.theme ?: ThemeMode.SYSTEM) {
                     Surface(modifier = Modifier.fillMaxSize()) {
                         // Wait for the first DataStore read before deciding where to start -
                         // otherwise a real "onboarding already done" user would flash onboarding.
-                        val loadedProfile: UserProfile? = profile
-                        if (loadedProfile != null) {
+                        // The branded screen fills that (usually brief) wait rather than a
+                        // blank frame.
+                        if (loadedProfile == null) {
+                            BrandedLoadingScreen()
+                        } else {
                             NoGutsNavHost(startAtOnboarding = !loadedProfile.onboardingComplete)
                         }
                     }
