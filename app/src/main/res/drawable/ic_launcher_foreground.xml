@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/vector"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A simple abstract gauge mark: a rounded arc with a dot, echoing the dashboard's
+         radial load gauge. Intentionally plain - swap for real brand art later. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 A30,30 0 1,1 24,54 L34,54 A20,20 0 1,0 54,34 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,48 m-8,0 a8,8 0 1,0 16,0 a8,8 0 1,0 -16,0" />
+</vector>

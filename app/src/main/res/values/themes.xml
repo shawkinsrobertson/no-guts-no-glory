@@ -1,0 +1,6 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. Actual theming (colors, dark mode) is done in Compose via
+         ui/theme/Theme.kt; this just needs to exist so the window has sane defaults before
+         setContent() runs. -->
+    <style name="Theme.NoGuts" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
