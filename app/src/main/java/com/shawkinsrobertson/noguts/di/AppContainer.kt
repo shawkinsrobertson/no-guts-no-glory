@@ -6,6 +6,7 @@ import com.shawkinsrobertson.noguts.data.db.AppDatabase
 import com.shawkinsrobertson.noguts.data.repository.DailyLogRepository
 import com.shawkinsrobertson.noguts.data.repository.FactorRepository
 import com.shawkinsrobertson.noguts.data.repository.PendingNotificationLogRepository
+import com.shawkinsrobertson.noguts.notifications.DailyReminderNotifier
 
 /**
  * Hand-rolled dependency container. A DI framework (Hilt/Koin) would be overkill for an
@@ -38,5 +39,9 @@ class AppContainer(context: Context) {
 
     val pendingNotificationLogRepository: PendingNotificationLogRepository by lazy {
         PendingNotificationLogRepository(database.pendingNotificationLogDao())
+    }
+
+    val dailyReminderNotifier: DailyReminderNotifier by lazy {
+        DailyReminderNotifier(appContext, factorRepository, database.dailyLogFactorDao(), pendingNotificationLogRepository)
     }
 }

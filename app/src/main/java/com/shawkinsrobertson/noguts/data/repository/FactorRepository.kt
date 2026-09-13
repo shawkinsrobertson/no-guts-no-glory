@@ -13,6 +13,8 @@ class FactorRepository(private val factorDao: FactorDao) {
     val allFactors: Flow<List<FactorEntity>> = factorDao.observeAll()
     val activeFactors: Flow<List<FactorEntity>> = factorDao.observeActive()
 
+    suspend fun getActiveFactors(): List<FactorEntity> = factorDao.getActive()
+
     /** Seeds the default factor library on first run only; a no-op afterward. */
     suspend fun seedDefaultsIfEmpty() {
         if (factorDao.count() == 0) {

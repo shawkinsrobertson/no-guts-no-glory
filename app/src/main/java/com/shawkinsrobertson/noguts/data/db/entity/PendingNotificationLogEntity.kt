@@ -16,6 +16,9 @@ data class PendingNotificationLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val date: LocalDate,
     val selectedFactorIds: List<Long>,
+    /** The personalized factor set chosen when the notification was first posted, kept
+     * stable across taps so re-rendering the notification never reshuffles the chips. */
+    val shownFactorIds: List<Long> = emptyList(),
     val notes: String? = null,
     val createdAt: Instant
 )

@@ -13,6 +13,22 @@ class PendingNotificationLogRepository(private val dao: PendingNotificationLogDa
 
     suspend fun get(date: LocalDate): PendingNotificationLogEntity? = dao.getByDate(date)
 
+    /** Creates the pending row for [date] with its personalized factor set if one doesn't
+     * already exist; otherwise leaves whatever's already in progress untouched. */
+    suspend fun ensureInitialized(date: LocalDate, shownFactorIds: List<Long>): PendingNotificationLogEntity {
+        val existing = dao.getByDate(date)
+        if (existing != null) return existing
+        val created = PendingNotificationLogEntity(
+            date = date,
+            selectedFactorIds = emptyList(),
+            shownFactorIds = shownFactorIds,
+            notes = null,
+            createdAt = Instant.now()
+        )
+        dao.upsert(created)
+        return created
+    }
+
     suspend fun toggleFactor(date: LocalDate, factorId: Long): PendingNotificationLogEntity {
         val existing = dao.getByDate(date)
         val currentIds = existing?.selectedFactorIds ?: emptyList()
@@ -21,6 +37,7 @@ class PendingNotificationLogRepository(private val dao: PendingNotificationLogDa
             id = existing?.id ?: 0,
             date = date,
             selectedFactorIds = updatedIds,
+            shownFactorIds = existing?.shownFactorIds ?: emptyList(),
             notes = existing?.notes,
             createdAt = existing?.createdAt ?: Instant.now()
         )
@@ -34,6 +51,7 @@ class PendingNotificationLogRepository(private val dao: PendingNotificationLogDa
             id = existing?.id ?: 0,
             date = date,
             selectedFactorIds = existing?.selectedFactorIds ?: emptyList(),
+            shownFactorIds = existing?.shownFactorIds ?: emptyList(),
             notes = note,
             createdAt = existing?.createdAt ?: Instant.now()
         )

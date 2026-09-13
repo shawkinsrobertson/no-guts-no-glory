@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 /** Fires once a day at the configured reminder time; posts the check-in and re-arms itself. */
 class ReminderAlarmReceiver : BroadcastReceiver() {
@@ -16,7 +17,7 @@ class ReminderAlarmReceiver : BroadcastReceiver() {
         val container = (context.applicationContext as NoGutsApplication).container
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                DailyReminderNotifier(context).postReminder()
+                container.dailyReminderNotifier.postInitialReminder(LocalDate.now())
                 val profile = container.userPreferencesRepository.profile.first()
                 if (profile.reminderEnabled) {
                     ReminderScheduler(context).schedule(profile.reminderHour, profile.reminderMinute)
