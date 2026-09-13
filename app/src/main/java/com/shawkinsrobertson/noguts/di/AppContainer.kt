@@ -3,6 +3,7 @@ package com.shawkinsrobertson.noguts.di
 import android.content.Context
 import com.shawkinsrobertson.noguts.data.datastore.UserPreferencesRepository
 import com.shawkinsrobertson.noguts.data.db.AppDatabase
+import com.shawkinsrobertson.noguts.data.repository.CsvExportRepository
 import com.shawkinsrobertson.noguts.data.repository.DailyLogRepository
 import com.shawkinsrobertson.noguts.data.repository.FactorRepository
 import com.shawkinsrobertson.noguts.data.repository.PendingNotificationLogRepository
@@ -43,5 +44,9 @@ class AppContainer(context: Context) {
 
     val dailyReminderNotifier: DailyReminderNotifier by lazy {
         DailyReminderNotifier(appContext, factorRepository, database.dailyLogFactorDao(), pendingNotificationLogRepository)
+    }
+
+    val csvExportRepository: CsvExportRepository by lazy {
+        CsvExportRepository(appContext, dailyLogRepository)
     }
 }

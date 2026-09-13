@@ -65,7 +65,14 @@ class FactorRepository(private val factorDao: FactorDao) {
         factorDao.update(factor.copy(active = active, updatedAt = Instant.now()))
     }
 
-    suspend fun deleteFactor(factor: FactorEntity) {
+    /** Returns true if the factor was actually deleted, false if it had logged history and
+     * was deactivated instead (a factor with history can't be hard-deleted - see the FK on
+     * DailyLogFactorEntity). */
+    suspend fun deleteFactor(factor: FactorEntity): Boolean = try {
         factorDao.delete(factor)
+        true
+    } catch (e: android.database.sqlite.SQLiteConstraintException) {
+        factorDao.update(factor.copy(active = false, updatedAt = Instant.now()))
+        false
     }
 }

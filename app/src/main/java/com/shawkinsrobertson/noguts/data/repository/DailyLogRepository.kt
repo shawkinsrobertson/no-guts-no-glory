@@ -55,6 +55,11 @@ class DailyLogRepository(
     fun observeRecentSnapshots(limit: Int): Flow<List<ScoreSnapshotEntity>> =
         scoreSnapshotDao.observeRecent(limit)
 
+    /** One-shot reads for CSV export - there's no need to stay subscribed for that. */
+    suspend fun getAllLoggedDaysOnce(): List<LoggedDay> = observeRecentLogs(Int.MAX_VALUE).first()
+
+    suspend fun getAllSnapshotsOnce(): List<ScoreSnapshotEntity> = observeRecentSnapshots(Int.MAX_VALUE).first()
+
     fun observeLatestSnapshot(): Flow<ScoreSnapshotEntity?> = scoreSnapshotDao.observeLatest()
 
     suspend fun getSelectionStatsSince(date: LocalDate): List<FactorSelectionStat> =

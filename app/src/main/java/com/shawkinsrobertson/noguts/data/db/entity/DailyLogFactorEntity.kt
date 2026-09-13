@@ -24,7 +24,11 @@ import com.shawkinsrobertson.noguts.scoring.IntensityLevel
             entity = FactorEntity::class,
             parentColumns = ["id"],
             childColumns = ["factorId"],
-            onDelete = ForeignKey.CASCADE
+            // RESTRICT, not CASCADE: a factor with logged history must not be
+            // hard-deletable, or deleting it would silently destroy that history.
+            // FactorRepository.deleteFactor() catches the resulting constraint
+            // violation and deactivates the factor instead.
+            onDelete = ForeignKey.RESTRICT
         )
     ],
     indices = [Index("dailyLogId"), Index("factorId")]
