@@ -1,6 +1,7 @@
 package com.shawkinsrobertson.noguts.notifications
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -49,8 +50,17 @@ class DailyReminderNotifier(
         postInteractive(date, shownFactors, pending)
     }
 
+    // The checkSelfPermission call below is inline (rather than via a shared private
+    // helper) so lint's own MissingPermission data-flow check can see it guarding the
+    // notify() call in the same method; @SuppressLint is a belt-and-suspenders backstop
+    // in case that heuristic still doesn't trace it in a given AGP/lint version.
+    @SuppressLint("MissingPermission")
     private fun postInteractive(date: LocalDate, shownFactors: List<FactorEntity>, pending: PendingNotificationLogEntity) {
-        if (!hasNotificationPermission()) return
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
 
         val builder = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHECK_IN)
             .setSmallIcon(R.drawable.ic_notification)
@@ -75,8 +85,13 @@ class DailyReminderNotifier(
     }
 
     /** Posts the final, non-interactive confirmation once the day is saved (section 22). */
+    @SuppressLint("MissingPermission")
     fun postSavedResult(dailyPercent: Double?, rolling72Percent: Double?, targetPercent: Double?) {
-        if (!hasNotificationPermission()) return
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
 
         val body = buildString {
             append("Logged")
@@ -141,10 +156,6 @@ class DailyReminderNotifier(
 
     private fun requestCodeFor(date: LocalDate, discriminator: Long): Int =
         (date.toEpochDay() * 1000 + (discriminator % 1000)).toInt()
-
-    private fun hasNotificationPermission(): Boolean =
-        ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
-            PackageManager.PERMISSION_GRANTED
 
     companion object {
         const val REMINDER_NOTIFICATION_ID = 42
