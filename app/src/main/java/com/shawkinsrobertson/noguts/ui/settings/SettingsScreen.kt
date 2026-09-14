@@ -95,7 +95,7 @@ fun SettingsScreen() {
 
 @Composable
 private fun SectionCard(title: String, content: @Composable () -> Unit) {
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(title, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(12.dp))

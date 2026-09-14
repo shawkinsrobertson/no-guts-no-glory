@@ -86,7 +86,7 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
     val gaugeColors = LocalGaugeColors.current
     val rollingPercent = snapshot?.rolling72Percent
 
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
@@ -137,7 +137,7 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
 
 @Composable
 private fun DrivingFactorsCard(drivingFactors: List<Pair<String, Double>>) {
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("What's driving your load", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))
@@ -222,7 +222,7 @@ private fun FactorGrid(
 
 @Composable
 private fun SavedTodaySummary(onEdit: () -> Unit) {
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Today's log saved", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(12.dp))

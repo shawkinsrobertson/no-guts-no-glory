@@ -53,7 +53,7 @@ fun StatsScreen() {
 
 @Composable
 private fun TrendCard(uiState: StatsUiState) {
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("72-hour load trend", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(12.dp))
@@ -84,7 +84,7 @@ private fun TrendCard(uiState: StatsUiState) {
 
 @Composable
 private fun MostCommonFactorCard(mostCommon: MostCommonFactor?) {
-    Card {
+    Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Most common this week", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(8.dp))

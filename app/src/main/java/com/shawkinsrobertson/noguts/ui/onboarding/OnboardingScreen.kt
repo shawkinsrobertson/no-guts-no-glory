@@ -207,9 +207,9 @@ private fun WeightStep(uiState: OnboardingUiState, viewModel: OnboardingViewMode
     Column(modifier = Modifier.fillMaxSize()) {
         Text("How much does this tend to affect your stomach?", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(16.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(uiState.selectedFactors, key = { it.id }) { factor ->
-                Card {
+                Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(factor.name)
                         val weight = uiState.weights[factor.id] ?: 5
