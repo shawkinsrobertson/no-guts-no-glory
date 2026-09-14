@@ -207,6 +207,12 @@ private fun OnboardingFactorChip(
 private fun WeightStep(uiState: OnboardingUiState, viewModel: OnboardingViewModel) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text("How much does this tend to affect your stomach?", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            "Enter a value between 1 and 10.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(uiState.selectedFactors, key = { it.id }) { factor ->

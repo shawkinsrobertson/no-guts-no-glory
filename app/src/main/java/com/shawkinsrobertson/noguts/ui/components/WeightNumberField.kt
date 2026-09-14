@@ -3,7 +3,6 @@ package com.shawkinsrobertson.noguts.ui.components
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,13 +16,14 @@ private const val MIN_WEIGHT = 1
 private const val MAX_WEIGHT = 10
 
 /** A 1-10 number input for a factor's weight, replacing the slider. Clamps on every
- * keystroke rather than allowing an out-of-range value to sit uncommitted. */
+ * keystroke rather than allowing an out-of-range value to sit uncommitted. No label on
+ * the field itself - each place this is used shows a single explanatory note once
+ * (above the list of fields) instead of repeating "Weight (1-10)" on every row. */
 @Composable
 fun WeightNumberField(
     value: Int,
     onValueChange: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-    label: String = "Weight (1-10)"
+    modifier: Modifier = Modifier
 ) {
     var text by remember(value) { mutableStateOf(value.toString()) }
 
@@ -39,9 +39,8 @@ fun WeightNumberField(
             text = clamped.toString()
             onValueChange(clamped)
         },
-        label = { Text(label) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         singleLine = true,
-        modifier = modifier.width(120.dp)
+        modifier = modifier.width(72.dp)
     )
 }

@@ -143,6 +143,14 @@ private fun FactorCategoryCard(category: FactorCategory, factors: List<FactorEnt
         Column(modifier = Modifier.padding(16.dp)) {
             CollapsibleSection(category.displayName(), expanded, { expanded = !expanded }) {
                 Column {
+                    if (factors.any { it.category != FactorCategory.SYMPTOM }) {
+                        Text(
+                            "Enter a value between 1 and 10.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                     factors.forEachIndexed { index, factor ->
                         FactorRow(factor, viewModel)
                         if (index != factors.lastIndex) {
@@ -155,11 +163,27 @@ private fun FactorCategoryCard(category: FactorCategory, factors: List<FactorEnt
     }
 }
 
+private val addableCategories = listOf(FactorCategory.LOAD, FactorCategory.RECOVERY, FactorCategory.SYMPTOM)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddFactorSection(viewModel: SettingsViewModel) {
     var newFactorName by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf(FactorCategory.LOAD) }
 
     SectionCard("Add a factor") {
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            addableCategories.forEachIndexed { index, category ->
+                SegmentedButton(
+                    selected = selectedCategory == category,
+                    onClick = { selectedCategory = category },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = addableCategories.size)
+                ) {
+                    Text(category.displayName())
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = newFactorName,
@@ -168,13 +192,20 @@ private fun AddFactorSection(viewModel: SettingsViewModel) {
                 modifier = Modifier.weight(1f)
             )
             TextButton(onClick = {
-                viewModel.addFactor(newFactorName, FactorCategory.LOAD, InputType.BOOLEAN, weight = 5.0)
+                val (inputType, weight) = if (selectedCategory == FactorCategory.SYMPTOM) {
+                    InputType.LEVEL to 0.0
+                } else {
+                    InputType.BOOLEAN to 5.0
+                }
+                viewModel.addFactor(newFactorName, selectedCategory, inputType, weight)
                 newFactorName = ""
             }) { Text("Add") }
         }
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
-            "New factors are added under Stressors.",
-            style = MaterialTheme.typography.bodyMedium
+            "New factors are added under ${selectedCategory.displayName()}.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
