@@ -38,6 +38,18 @@ val DarkOnErrorContainer = Color(0xFFFFDAD3)
 val DarkOutline = Color(0xFF5B6167)
 val DarkOutlineVariant = Color(0xFF3A4046)
 
+// Surface container tonal family - Card, Sheet, Menu etc. draw from these (mainly
+// surfaceContainerLow), not from `surface` directly. Left unset, Material3 derives them
+// from its default purple seed rather than this palette, which is what produced the
+// lavender-gray cards even after primary/secondary/tertiary were all fixed.
+val DarkSurfaceDim = Color(0xFF0D171C)
+val DarkSurfaceBright = Color(0xFF364147)
+val DarkSurfaceContainerLowest = Color(0xFF081116)
+val DarkSurfaceContainerLow = Color(0xFF151F25)
+val DarkSurfaceContainer = Color(0xFF1A252B)
+val DarkSurfaceContainerHigh = Color(0xFF253038)
+val DarkSurfaceContainerHighest = Color(0xFF303B43)
+
 // Light theme
 val LightBackground = Color(0xFFFBF8F1)
 val LightOnBackground = Color(0xFF191C1A)
@@ -68,6 +80,15 @@ val LightOnErrorContainer = Color(0xFF410E0B)
 
 val LightOutline = Color(0xFF7C7869)
 val LightOutlineVariant = Color(0xFFCDC6B4)
+
+// See the dark-theme equivalents above for why this family exists.
+val LightSurfaceDim = Color(0xFFE5E0D3)
+val LightSurfaceBright = Color(0xFFFFFFFF)
+val LightSurfaceContainerLowest = Color(0xFFFFFFFF)
+val LightSurfaceContainerLow = Color(0xFFF5F1E6)
+val LightSurfaceContainer = Color(0xFFEFEADC)
+val LightSurfaceContainerHigh = Color(0xFFE9E3D3)
+val LightSurfaceContainerHighest = Color(0xFFE3DCC9)
 
 // Absolute gauge bands (plan section 14) - independent of the personal target marker,
 // and independent of the primary/tertiary brand colors above.
