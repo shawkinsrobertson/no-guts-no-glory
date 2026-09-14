@@ -59,7 +59,7 @@ private fun MainScaffold(
             NavigationBar {
                 val backStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = backStackEntry?.destination
-                NoGutsDestination.bottomNavItems.forEach { destination ->
+                bottomNavDestinations.forEach { destination ->
                     val selected = currentDestination?.hierarchy?.any { it.route == destination.route } == true
                     NavigationBarItem(
                         selected = selected,
