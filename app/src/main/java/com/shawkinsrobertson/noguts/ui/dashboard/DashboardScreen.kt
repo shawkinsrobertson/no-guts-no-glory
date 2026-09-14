@@ -2,15 +2,14 @@ package com.shawkinsrobertson.noguts.ui.dashboard
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -186,19 +185,24 @@ private fun CheckInSection(uiState: DashboardUiState, viewModel: DashboardViewMo
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FactorGrid(
     factors: List<FactorEntity>,
     selections: Map<Long, FactorSelectionState>,
     viewModel: DashboardViewModel
 ) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    // A plain FlowRow rather than a LazyVerticalGrid: this list is small (a couple dozen
+    // factors at most), so laziness buys nothing, and nesting a lazy grid inside the
+    // outer LazyColumn required manually computing its height from the item count - a
+    // fragile pattern that breaks the moment the row height assumption is wrong.
+    FlowRow(
+        maxItemsInEachRow = 2,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.height((((factors.size + 1) / 2) * 80).dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
     ) {
-        items(factors, key = { it.id }) { factor ->
+        factors.forEach { factor ->
             val state = selections[factor.id] ?: FactorSelectionState.NotSelected
             FactorCard(
                 factor = factor,
@@ -209,7 +213,8 @@ private fun FactorGrid(
                     } else {
                         viewModel.cycleLevelFactor(factor.id)
                     }
-                }
+                },
+                modifier = Modifier.weight(1f)
             )
         }
     }
