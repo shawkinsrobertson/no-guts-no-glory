@@ -51,6 +51,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shawkinsrobertson.noguts.notifications.ReminderScheduler
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
+import com.shawkinsrobertson.noguts.ui.components.WeightNumberField
 
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
@@ -210,16 +211,16 @@ private fun WeightStep(uiState: OnboardingUiState, viewModel: OnboardingViewMode
         LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(uiState.selectedFactors, key = { it.id }) { factor ->
                 Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(factor.name)
-                        val weight = uiState.weights[factor.id] ?: 5
-                        Slider(
-                            value = weight.toFloat(),
-                            onValueChange = { viewModel.updateWeight(factor.id, it.toInt()) },
-                            valueRange = 1f..10f,
-                            steps = 8
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(factor.name, modifier = Modifier.weight(1f))
+                        WeightNumberField(
+                            value = uiState.weights[factor.id] ?: 5,
+                            onValueChange = { viewModel.updateWeight(factor.id, it) }
                         )
-                        Text("$weight / 10", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }

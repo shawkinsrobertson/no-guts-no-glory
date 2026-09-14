@@ -10,16 +10,19 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -30,6 +33,7 @@ import com.shawkinsrobertson.noguts.scoring.LoadTier
 import com.shawkinsrobertson.noguts.scoring.loadTierFor
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
+import com.shawkinsrobertson.noguts.ui.components.CollapsibleSection
 import com.shawkinsrobertson.noguts.ui.components.RadialLoadGauge
 import com.shawkinsrobertson.noguts.ui.theme.LocalGaugeColors
 import java.time.LocalTime
@@ -46,16 +50,14 @@ fun DashboardScreen() {
 
     if (uiState.loading) return
 
-    androidx.compose.foundation.lazy.LazyColumn(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item { GreetingHeader(uiState.greetingName) }
         item { LoadGaugeCard(uiState) }
-        if (uiState.drivingFactors.isNotEmpty()) {
-            item { DrivingFactorsCard(uiState.drivingFactors) }
-        }
+        item { TodaysLoadCard(uiState.todaysLoadPercent) }
         item {
             if (uiState.isEditingToday) {
                 CheckInSection(uiState, viewModel)
@@ -136,32 +138,42 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
 }
 
 @Composable
-private fun DrivingFactorsCard(drivingFactors: List<Pair<String, Double>>) {
+private fun TodaysLoadCard(todaysLoadPercent: Double?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("What's driving your load", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(8.dp))
-            drivingFactors.forEach { (name, percent) ->
-                Text("$name — ${percent.toInt()}%", style = MaterialTheme.typography.bodyLarge)
-            }
+            Text("Today's load", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                if (todaysLoadPercent != null) "${todaysLoadPercent.toInt()}%" else "Not logged yet",
+                style = if (todaysLoadPercent != null) MaterialTheme.typography.displayLarge else MaterialTheme.typography.titleMedium
+            )
         }
     }
 }
 
 @Composable
 private fun CheckInSection(uiState: DashboardUiState, viewModel: DashboardViewModel) {
+    var stressorsExpanded by rememberSaveable { mutableStateOf(true) }
+    var recoveryExpanded by rememberSaveable { mutableStateOf(true) }
+    var symptomsExpanded by rememberSaveable { mutableStateOf(true) }
+
     Column {
         Text("Today's check-in", style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(12.dp))
 
-        FactorGrid(uiState.quickFactors, uiState.selections, viewModel)
-
-        if (uiState.moreFactors.isNotEmpty()) {
-            TextButton(onClick = viewModel::toggleShowMoreFactors) {
-                Text(if (uiState.showMoreFactors) "Fewer factors" else "More factors ▾")
+        if (uiState.stressorFactors.isNotEmpty()) {
+            CollapsibleSection("Stressors", stressorsExpanded, { stressorsExpanded = !stressorsExpanded }) {
+                FactorGrid(uiState.stressorFactors, uiState.selections, viewModel)
             }
-            if (uiState.showMoreFactors) {
-                FactorGrid(uiState.moreFactors, uiState.selections, viewModel)
+        }
+        if (uiState.recoveryFactors.isNotEmpty()) {
+            CollapsibleSection("Recovery", recoveryExpanded, { recoveryExpanded = !recoveryExpanded }) {
+                FactorGrid(uiState.recoveryFactors, uiState.selections, viewModel)
+            }
+        }
+        if (uiState.symptomFactors.isNotEmpty()) {
+            CollapsibleSection("Symptoms", symptomsExpanded, { symptomsExpanded = !symptomsExpanded }) {
+                FactorGrid(uiState.symptomFactors, uiState.selections, viewModel)
             }
         }
 
@@ -192,15 +204,11 @@ private fun FactorGrid(
     selections: Map<Long, FactorSelectionState>,
     viewModel: DashboardViewModel
 ) {
-    // A plain FlowRow rather than a LazyVerticalGrid: this list is small (a couple dozen
-    // factors at most), so laziness buys nothing, and nesting a lazy grid inside the
-    // outer LazyColumn required manually computing its height from the item count - a
-    // fragile pattern that breaks the moment the row height assumption is wrong.
     FlowRow(
         maxItemsInEachRow = 2,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
     ) {
         factors.forEach { factor ->
             val state = selections[factor.id] ?: FactorSelectionState.NotSelected

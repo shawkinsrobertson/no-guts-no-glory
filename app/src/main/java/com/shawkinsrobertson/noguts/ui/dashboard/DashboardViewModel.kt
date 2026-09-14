@@ -18,23 +18,22 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 
-/** How many of the most relevant factors show up-front, before "More factors". */
-private const val QUICK_FACTOR_COUNT = 6
-
 data class DashboardUiState(
     val loading: Boolean = true,
     val greetingName: String = "",
     val latestSnapshot: ScoreSnapshotEntity? = null,
-    val quickFactors: List<FactorEntity> = emptyList(),
-    val moreFactors: List<FactorEntity> = emptyList(),
+    /** Only non-null once today itself has a saved snapshot - a stale prior day's
+     * percentage is never shown as "today's load". */
+    val todaysLoadPercent: Double? = null,
+    val stressorFactors: List<FactorEntity> = emptyList(),
+    val recoveryFactors: List<FactorEntity> = emptyList(),
+    val symptomFactors: List<FactorEntity> = emptyList(),
     val selections: Map<Long, FactorSelectionState> = emptyMap(),
     val notes: String = "",
-    val showMoreFactors: Boolean = false,
     val todayAlreadyLogged: Boolean = false,
     val isEditingToday: Boolean = true,
     val isSaving: Boolean = false,
-    val justSaved: Boolean = false,
-    val drivingFactors: List<Pair<String, Double>> = emptyList()
+    val justSaved: Boolean = false
 )
 
 class DashboardViewModel(
@@ -55,34 +54,23 @@ class DashboardViewModel(
             dailyLogRepository.observeLatestSnapshot(),
             userPreferencesRepository.profile
         ) { activeFactors, todayLog, latestSnapshot, profile ->
-            val trackable = activeFactors
-                .filter { it.category != FactorCategory.SYMPTOM }
-                .sortedBy { it.sortOrder }
-            val symptoms = activeFactors.filter { it.category == FactorCategory.SYMPTOM }.sortedBy { it.sortOrder }
-
-            val maxPossible = factorRepository.currentMaxPossibleDailyLoad()
-            val driving = todayLog?.factors
-                ?.filter { it.factor.category == FactorCategory.LOAD && it.calculatedPoints > 0 }
-                ?.sortedByDescending { it.calculatedPoints }
-                ?.take(3)
-                ?.map { it.factor.name to (if (maxPossible > 0) it.calculatedPoints / maxPossible * 100.0 else 0.0) }
-                ?: emptyList()
-
+            val byCategory = activeFactors.groupBy { it.category }
             val current = _uiState.value
+
             DashboardUiState(
                 loading = false,
                 greetingName = profile.name,
                 latestSnapshot = latestSnapshot,
-                quickFactors = trackable.take(QUICK_FACTOR_COUNT),
-                moreFactors = trackable.drop(QUICK_FACTOR_COUNT) + symptoms,
+                todaysLoadPercent = latestSnapshot?.takeIf { it.date == today }?.normalizedDailyPercent,
+                stressorFactors = byCategory[FactorCategory.LOAD].orEmpty().sortedBy { it.sortOrder },
+                recoveryFactors = byCategory[FactorCategory.RECOVERY].orEmpty().sortedBy { it.sortOrder },
+                symptomFactors = byCategory[FactorCategory.SYMPTOM].orEmpty().sortedBy { it.sortOrder },
                 selections = if (current.loading || !current.isEditingToday) selectionsFrom(todayLog) else current.selections,
                 notes = if (current.loading) todayLog?.notes ?: "" else current.notes,
-                showMoreFactors = current.showMoreFactors,
                 todayAlreadyLogged = todayLog != null,
                 isEditingToday = current.loading || todayLog == null || current.isEditingToday,
                 isSaving = false,
-                justSaved = current.justSaved,
-                drivingFactors = driving
+                justSaved = current.justSaved
             )
         }.onEach { _uiState.value = it }.launchIn(viewModelScope)
     }
@@ -114,10 +102,6 @@ class DashboardViewModel(
 
     fun updateNotes(notes: String) {
         _uiState.value = _uiState.value.copy(notes = notes, justSaved = false)
-    }
-
-    fun toggleShowMoreFactors() {
-        _uiState.value = _uiState.value.copy(showMoreFactors = !_uiState.value.showMoreFactors)
     }
 
     fun startEditingToday() {
