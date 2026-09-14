@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">No Guts No Glory</string>
+    <string name="reminder_title">Quick stomach check</string>
+    <string name="reminder_body">How was today?</string>
+</resources>

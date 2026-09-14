@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.NoGutsNoGlory" parent="android:Theme.Material.NoActionBar" />
+
+    <style name="Theme.NoGutsNoGlory.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.NoGutsNoGlory</item>
+    </style>
+</resources>

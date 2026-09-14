@@ -1,0 +1,17 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. Actual theming (colors, dark mode) is done in Compose via
+         ui/theme/Theme.kt; this just needs to exist so the window has sane defaults before
+         setContent() runs. -->
+    <style name="Theme.NoGutsNoGlory" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Applied only to the launching activity (see AndroidManifest). The system splash
+         screen (Android 12+) shows windowSplashScreenBackground behind
+         windowSplashScreenAnimatedIcon, then hands off to postSplashScreenTheme on first
+         frame. It only ever shows the launcher icon on a background - a full branded
+         screen isn't the OS's to show, so that lives in-app (see BrandedLoadingScreen). -->
+    <style name="Theme.NoGutsNoGlory.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.NoGutsNoGlory</item>
+    </style>
+</resources>
