@@ -2,9 +2,13 @@ package com.shawkinsrobertson.noguts.ui.dashboard
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -21,8 +25,8 @@ import com.shawkinsrobertson.noguts.scoring.IntensityLevel
 private val CARD_HEIGHT = 64.dp
 
 /** How "full" a selection reads visually - selection and intensity are both communicated
- * purely through this fraction (interpolated container/border color), never an icon or
- * extra text line, so every card stays exactly [CARD_HEIGHT] regardless of what's selected. */
+ * through this fraction (interpolated container/border color, no checkmark icon), so every
+ * card stays exactly [CARD_HEIGHT] regardless of what's selected. */
 private fun FactorSelectionState.fillFraction(): Float = when (this) {
     is FactorSelectionState.NotSelected -> 0f
     is FactorSelectionState.BooleanSelected -> 1f
@@ -34,6 +38,19 @@ private fun FactorSelectionState.fillFraction(): Float = when (this) {
     }
 }
 
+/** Color alone doesn't tell a mild/moderate/severe factor which of the three it's on, or
+ * make it obvious that tapping through severe is what un-selects it - so a level factor
+ * gets this short word alongside its name. Card height stays fixed either way. */
+private fun FactorSelectionState.levelLabel(): String? = when (this) {
+    is FactorSelectionState.LevelSelected -> when (level) {
+        IntensityLevel.NONE -> null
+        IntensityLevel.MILD -> "Mild"
+        IntensityLevel.MODERATE -> "Moderate"
+        IntensityLevel.SEVERE -> "Severe"
+    }
+    else -> null
+}
+
 @Composable
 fun FactorCard(
     factor: FactorEntity,
@@ -43,6 +60,7 @@ fun FactorCard(
 ) {
     val fillFraction = selectionState.fillFraction()
     val selected = fillFraction > 0f
+    val levelLabel = selectionState.levelLabel()
 
     val containerColor = lerp(
         MaterialTheme.colorScheme.surfaceContainerLow,
@@ -66,12 +84,23 @@ fun FactorCard(
             modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
-            Text(
-                factor.name,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    factor.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (levelLabel != null) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        levelLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+            }
         }
     }
 }
