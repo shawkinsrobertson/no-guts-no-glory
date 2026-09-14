@@ -8,8 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.core.splashscreen.installSplashScreen
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.shawkinsrobertson.noguts.data.datastore.ThemeMode
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.navigation.NoGutsNavHost
