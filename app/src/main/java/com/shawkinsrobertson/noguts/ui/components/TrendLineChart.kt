@@ -17,6 +17,10 @@ import com.shawkinsrobertson.noguts.ui.stats.TrendPoint
  * dotted line for the personal target at each point in time (each [TrendPoint] carries
  * the target that was actually in effect on that day, so a mid-week target change shows
  * up as a step rather than being rewritten across history).
+ *
+ * Plotted in raw points rather than the normalized percentage, so unlike a percent scale
+ * the y-axis has no fixed ceiling - it auto-scales to whatever this week's highest value
+ * (load or target) actually is, with a little headroom so a line never touches the top edge.
  */
 @Composable
 fun TrendLineChart(points: List<TrendPoint>, modifier: Modifier = Modifier) {
@@ -26,7 +30,8 @@ fun TrendLineChart(points: List<TrendPoint>, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.fillMaxWidth().height(180.dp)) {
         if (points.size < 2) return@Canvas
 
-        val maxY = 100f
+        val highestValue = points.maxOf { maxOf(it.rolling72Load, it.targetLoad) }
+        val maxY = (highestValue * 1.1).coerceAtLeast(1.0).toFloat()
         val stepX = size.width / (points.size - 1)
         fun yFor(value: Double): Float = size.height - (value.toFloat() / maxY * size.height)
 
@@ -34,8 +39,8 @@ fun TrendLineChart(points: List<TrendPoint>, modifier: Modifier = Modifier) {
         val targetPath = Path()
         points.forEachIndexed { index, point ->
             val x = stepX * index
-            val loadY = yFor(point.rolling72Percent)
-            val targetY = yFor(point.targetPercent)
+            val loadY = yFor(point.rolling72Load)
+            val targetY = yFor(point.targetLoad)
             if (index == 0) {
                 loadPath.moveTo(x, loadY)
                 targetPath.moveTo(x, targetY)

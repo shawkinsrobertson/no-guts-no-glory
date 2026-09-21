@@ -52,6 +52,7 @@ import com.shawkinsrobertson.noguts.notifications.ReminderScheduler
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.WeightNumberField
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 
 @Composable
 fun OnboardingScreen(onFinished: () -> Unit) {
@@ -238,14 +239,17 @@ private fun WeightStep(uiState: OnboardingUiState, viewModel: OnboardingViewMode
 private fun TargetAndReminderStep(uiState: OnboardingUiState, viewModel: OnboardingViewModel) {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    val suggestedTargetPoints = uiState.maxPossibleDailyLoad * uiState.suggestedTargetPercent / 100.0
+    val chosenTargetPoints = uiState.maxPossibleDailyLoad * uiState.chosenTargetPercent / 100.0
+
     Column(modifier = Modifier.fillMaxSize()) {
         Text("Your suggested target", style = MaterialTheme.typography.titleLarge)
-        Text("${uiState.suggestedTargetPercent.toInt()}%", style = MaterialTheme.typography.displayLarge)
+        Text(suggestedTargetPoints.formatPoints(), style = MaterialTheme.typography.displayLarge)
         Text("This is a starting point for your personal tracking system, not a medical threshold.")
         Spacer(modifier = Modifier.height(12.dp))
         Row {
             Button(onClick = viewModel::chooseSuggestedTarget) {
-                Text("Use ${uiState.suggestedTargetPercent.toInt()}%")
+                Text("Use ${suggestedTargetPoints.formatPoints()}")
             }
             Spacer(modifier = Modifier.width(8.dp))
             OutlinedButton(onClick = { viewModel.chooseCustomTarget(uiState.chosenTargetPercent) }) {
@@ -258,7 +262,7 @@ private fun TargetAndReminderStep(uiState: OnboardingUiState, viewModel: Onboard
                 onValueChange = { viewModel.chooseCustomTarget(it.toDouble()) },
                 valueRange = 10f..90f
             )
-            Text("${uiState.chosenTargetPercent.toInt()}%")
+            Text(chosenTargetPoints.formatPoints())
         }
 
         Spacer(modifier = Modifier.height(32.dp))

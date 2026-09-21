@@ -53,6 +53,7 @@ import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.CollapsibleSection
 import com.shawkinsrobertson.noguts.ui.components.WeightNumberField
 import com.shawkinsrobertson.noguts.ui.components.displayName
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 
 @Composable
 fun SettingsScreen() {
@@ -235,7 +236,7 @@ private fun FactorRow(factor: FactorEntity, viewModel: SettingsViewModel) {
 @Composable
 private fun TargetSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     SectionCard("Your target") {
-        Text("${uiState.targetPercent.toInt()}%", style = MaterialTheme.typography.headlineMedium)
+        Text((uiState.maxPossibleDailyLoad * uiState.targetPercent / 100.0).formatPoints(), style = MaterialTheme.typography.headlineMedium)
         Slider(
             value = uiState.targetPercent.toFloat(),
             onValueChange = { viewModel.updateTargetPercent(it.toDouble()) },

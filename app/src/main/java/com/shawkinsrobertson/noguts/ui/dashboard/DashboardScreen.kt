@@ -35,6 +35,7 @@ import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.CollapsibleSection
 import com.shawkinsrobertson.noguts.ui.components.RadialLoadGauge
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 import com.shawkinsrobertson.noguts.ui.theme.LocalGaugeColors
 import java.time.LocalTime
 
@@ -57,7 +58,7 @@ fun DashboardScreen() {
     ) {
         item { GreetingHeader(uiState.greetingName) }
         item { LoadGaugeCard(uiState) }
-        item { TodaysLoadCard(uiState.todaysLoadPercent) }
+        item { TodaysLoadCard(uiState.todaysLoadPoints) }
         item {
             if (uiState.isEditingToday) {
                 CheckInSection(uiState, viewModel)
@@ -86,7 +87,12 @@ private fun GreetingHeader(name: String) {
 private fun LoadGaugeCard(uiState: DashboardUiState) {
     val snapshot = uiState.latestSnapshot
     val gaugeColors = LocalGaugeColors.current
+    // The gauge's fill proportion and target tick are still geometry against the
+    // normalized percentage (that's what makes a 270-degree dial meaningful) - only the
+    // number shown at its center switches to raw points.
     val rollingPercent = snapshot?.rolling72Percent
+    val rollingPoints = snapshot?.rolling72Load
+    val targetPoints = snapshot?.targetPercent?.let { uiState.maxPossibleDailyLoad * it / 100.0 }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -100,19 +106,19 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
                 targetPercent = snapshot?.targetPercent
             ) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    if (rollingPercent != null) {
-                        Text("${rollingPercent.toInt()}%", style = MaterialTheme.typography.displayLarge)
+                    if (rollingPoints != null) {
+                        Text(rollingPoints.formatPoints(), style = MaterialTheme.typography.displayLarge)
                     } else {
                         Text("--", style = MaterialTheme.typography.displayLarge)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            if (rollingPercent != null) {
+            if (rollingPoints != null) {
                 Text("72-hour stomach load", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                snapshot?.targetPercent?.let { target ->
-                    Text("Target: ${target.toInt()}%", style = MaterialTheme.typography.bodyMedium)
-                    if (rollingPercent > target) {
+                targetPoints?.let { target ->
+                    Text("Target: ${target.formatPoints()}", style = MaterialTheme.typography.bodyMedium)
+                    if (rollingPoints > target) {
                         Text("Above your target", style = MaterialTheme.typography.labelLarge)
                     }
                 }
@@ -138,14 +144,14 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
 }
 
 @Composable
-private fun TodaysLoadCard(todaysLoadPercent: Double?) {
+private fun TodaysLoadCard(todaysLoadPoints: Double?) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Today's load", style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                if (todaysLoadPercent != null) "${todaysLoadPercent.toInt()}%" else "Not logged yet",
-                style = if (todaysLoadPercent != null) MaterialTheme.typography.displayLarge else MaterialTheme.typography.titleMedium
+                todaysLoadPoints?.formatPoints() ?: "Not logged yet",
+                style = if (todaysLoadPoints != null) MaterialTheme.typography.displayLarge else MaterialTheme.typography.titleMedium
             )
         }
     }

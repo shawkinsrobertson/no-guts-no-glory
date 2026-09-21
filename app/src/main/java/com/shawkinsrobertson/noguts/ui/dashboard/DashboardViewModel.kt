@@ -23,8 +23,13 @@ data class DashboardUiState(
     val greetingName: String = "",
     val latestSnapshot: ScoreSnapshotEntity? = null,
     /** Only non-null once today itself has a saved snapshot - a stale prior day's
-     * percentage is never shown as "today's load". */
-    val todaysLoadPercent: Double? = null,
+     * score is never shown as "today's load". Raw points, not the normalized percentage -
+     * see plan feedback: points are what the user is used to reading. */
+    val todaysLoadPoints: Double? = null,
+    /** Sum of currently active LOAD factor weights - the scale a points-based target is
+     * expressed against, since a percent-based target stays meaningful as factors are
+     * added/removed but a points one needs a current denominator to convert into. */
+    val maxPossibleDailyLoad: Double = 0.0,
     val stressorFactors: List<FactorEntity> = emptyList(),
     val recoveryFactors: List<FactorEntity> = emptyList(),
     val symptomFactors: List<FactorEntity> = emptyList(),
@@ -61,7 +66,8 @@ class DashboardViewModel(
                 loading = false,
                 greetingName = profile.name,
                 latestSnapshot = latestSnapshot,
-                todaysLoadPercent = latestSnapshot?.takeIf { it.date == today }?.normalizedDailyPercent,
+                todaysLoadPoints = latestSnapshot?.takeIf { it.date == today }?.dailyLoad,
+                maxPossibleDailyLoad = byCategory[FactorCategory.LOAD].orEmpty().sumOf { it.weight },
                 stressorFactors = byCategory[FactorCategory.LOAD].orEmpty().sortedBy { it.sortOrder },
                 recoveryFactors = byCategory[FactorCategory.RECOVERY].orEmpty().sortedBy { it.sortOrder },
                 symptomFactors = byCategory[FactorCategory.SYMPTOM].orEmpty().sortedBy { it.sortOrder },

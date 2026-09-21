@@ -35,6 +35,14 @@ data class OnboardingUiState(
     val finished: Boolean = false
 ) {
     val selectedFactors: List<FactorEntity> get() = trackableFactors.filter { it.id in selectedFactorIds }
+
+    /** The max possible daily load implied by what's selected so far, using each
+     * factor's in-progress weight from [weights] rather than its stored default - the
+     * scale the target percent (steps 3-4) is shown against as points. */
+    val maxPossibleDailyLoad: Double
+        get() = selectedFactors
+            .filter { it.category == FactorCategory.LOAD }
+            .sumOf { (weights[it.id] ?: it.weight.toInt()).toDouble() }
 }
 
 class OnboardingViewModel(
