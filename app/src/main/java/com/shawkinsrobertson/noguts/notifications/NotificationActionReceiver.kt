@@ -3,7 +3,6 @@ package com.shawkinsrobertson.noguts.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.core.app.RemoteInput
 import com.shawkinsrobertson.noguts.NoGutsApplication
 import com.shawkinsrobertson.noguts.di.AppContainer
 import com.shawkinsrobertson.noguts.data.repository.FactorLogInput
@@ -17,9 +16,9 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Handles every tap on the interactive daily notification (plan sections 19-22): toggling
- * a factor chip, capturing an inline note via RemoteInput, one-tap "nothing notable", and
- * the final save. Runs entirely against Room + the scoring engine through [NoGutsApplication]'s
- * container - none of this depends on the app's UI process being alive.
+ * the one quick factor chip, one-tap "nothing notable", and the final save. Runs entirely
+ * against Room + the scoring engine through [NoGutsApplication]'s container - none of this
+ * depends on the app's UI process being alive.
  */
 class NotificationActionReceiver : BroadcastReceiver() {
 
@@ -41,16 +40,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                             container.pendingNotificationLogRepository.toggleFactor(date, factorId)
                             notifier.refreshInteractive(date)
                         }
-                    }
-
-                    NotificationActions.ACTION_ADD_NOTE -> {
-                        val note = RemoteInput.getResultsFromIntent(intent)
-                            ?.getCharSequence(NotificationActions.REMOTE_INPUT_NOTE_KEY)
-                            ?.toString()
-                        if (!note.isNullOrBlank()) {
-                            container.pendingNotificationLogRepository.setNote(date, note)
-                        }
-                        notifier.refreshInteractive(date)
                     }
 
                     NotificationActions.ACTION_NOTHING_NOTABLE -> {
@@ -85,10 +74,13 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     private suspend fun postSavedResult(container: AppContainer, date: LocalDate) {
         val snapshot = container.database.scoreSnapshotDao().getByDate(date)
+        val targetPoints = snapshot?.let {
+            container.factorRepository.currentMaxPossibleDailyLoad() * it.targetPercent / 100.0
+        }
         container.dailyReminderNotifier.postSavedResult(
-            dailyPercent = snapshot?.normalizedDailyPercent,
-            rolling72Percent = snapshot?.rolling72Percent,
-            targetPercent = snapshot?.targetPercent
+            dailyPoints = snapshot?.dailyLoad,
+            rolling72Points = snapshot?.rolling72Load,
+            targetPoints = targetPoints
         )
     }
 }
