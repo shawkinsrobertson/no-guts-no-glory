@@ -3,7 +3,6 @@ package com.shawkinsrobertson.noguts.notifications
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import androidx.core.app.RemoteInput
 import com.shawkinsrobertson.noguts.NoGutsApplication
 import com.shawkinsrobertson.noguts.di.AppContainer
 import com.shawkinsrobertson.noguts.data.repository.FactorLogInput
@@ -17,10 +16,9 @@ import java.time.format.DateTimeFormatter
 
 /**
  * Handles every tap on the interactive daily notification (plan sections 19-22): toggling
- * one of the 3 quick factor buttons, capturing an inline note via RemoteInput, one-tap
- * "nothing notable", and the final save. Runs entirely against Room + the scoring engine
- * through [NoGutsApplication]'s container - none of this depends on the app's UI process
- * being alive.
+ * one of the 3 quick factor buttons, one-tap "nothing notable", and the final save. Runs
+ * entirely against Room + the scoring engine through [NoGutsApplication]'s container -
+ * none of this depends on the app's UI process being alive.
  */
 class NotificationActionReceiver : BroadcastReceiver() {
 
@@ -42,16 +40,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                             container.pendingNotificationLogRepository.toggleFactor(date, factorId)
                             notifier.refreshInteractive(date)
                         }
-                    }
-
-                    NotificationActions.ACTION_ADD_NOTE -> {
-                        val note = RemoteInput.getResultsFromIntent(intent)
-                            ?.getCharSequence(NotificationActions.REMOTE_INPUT_NOTE_KEY)
-                            ?.toString()
-                        if (!note.isNullOrBlank()) {
-                            container.pendingNotificationLogRepository.setNote(date, note)
-                        }
-                        notifier.refreshInteractive(date)
                     }
 
                     NotificationActions.ACTION_NOTHING_NOTABLE -> {

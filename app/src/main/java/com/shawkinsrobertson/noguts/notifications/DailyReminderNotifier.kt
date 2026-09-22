@@ -11,7 +11,6 @@ import android.widget.RemoteViews
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.RemoteInput
 import com.shawkinsrobertson.noguts.MainActivity
 import com.shawkinsrobertson.noguts.R
 import com.shawkinsrobertson.noguts.data.db.dao.DailyLogFactorDao
@@ -26,20 +25,26 @@ import java.time.format.DateTimeFormatter
 /**
  * Builds and posts the daily check-in notification, including the interactive version: up
  * to 3 quick-toggle factor buttons (rebuilt and reposted to the same notification ID on
- * every tap, per plan section 19), a one-tap zero day, a save action, and an inline note.
+ * every tap, per plan section 19), a one-tap zero day, and a save action.
  *
  * A standard notification's addAction() row only ever renders the first 3 actions - past
  * that, extras are silently dropped, not overflowed into a menu. That's not enough room
  * for 3 factor toggles plus "Nothing notable" plus "Save", so this uses a *custom* content
- * view instead (setCustomBigContentView): the toggle/nothing-notable/save buttons are
- * plain RemoteViews Buttons wired with setOnClickPendingIntent, which aren't subject to
- * that 3-action cap at all since they're not NotificationCompat.Action objects. The one
- * thing that still has to be a real Action is "Add a note" - RemoteInput (the system's
- * inline reply UI) only attaches to an Action, not to an arbitrary RemoteViews click - but
- * with the other 5 buttons moved off the action row, that single action is nowhere near
- * the 3-action limit. Picking an intensity level for a LEVEL factor still isn't possible
- * here (no room for a picker), so those log at a sensible default; the full check-in
- * screen for that is reachable by tapping the notification body.
+ * view instead (setCustomBigContentView): all 5 buttons are plain RemoteViews Buttons
+ * wired with setOnClickPendingIntent, which aren't subject to that 3-action cap at all
+ * since they're not NotificationCompat.Action objects.
+ *
+ * There's deliberately no inline "add a note" action here. It was tried as a
+ * NotificationCompat.Action with a RemoteInput reply (RemoteInput can only attach to a
+ * real Action, not a RemoteViews click, so it couldn't be a 6th button) - but reposting
+ * the notification on a factor toggle while that reply box was open didn't cleanly
+ * replace it: Android tries to preserve an in-progress reply across an update to the same
+ * notification, and with this one restyled via DecoratedCustomViewStyle on every repost,
+ * that produced two overlapping reply boxes rather than one. "Nothing notable"/"Save"
+ * never hit this because they swap in the plain "Logged" confirmation, which drops the
+ * custom view and the reply action entirely rather than updating in place. Notes and
+ * intensity levels for a LEVEL factor both still work from the full check-in, reachable
+ * by tapping the notification body.
  */
 class DailyReminderNotifier(
     private val context: Context,
@@ -57,8 +62,8 @@ class DailyReminderNotifier(
         postInteractive(date, shownFactors, pending)
     }
 
-    /** Rebuilds and reposts the interactive notification after a toggle or note capture,
-     * reusing the same factor set the pending log already committed to. */
+    /** Rebuilds and reposts the interactive notification after a factor toggle, reusing
+     * the same factor set the pending log already committed to. */
     suspend fun refreshInteractive(date: LocalDate) {
         val pending = pendingRepository.get(date) ?: return
         val shownFactors = factorRepository.getByIds(pending.shownFactorIds)
@@ -112,7 +117,6 @@ class DailyReminderNotifier(
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(openAppPendingIntent())
-            .addAction(addNoteAction(date))
 
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, builder.build())
     }
@@ -165,27 +169,9 @@ class DailyReminderNotifier(
         )
     }
 
-    /** The one real NotificationCompat.Action left (see the class kdoc for why) - a
-     * RemoteInput reply only attaches to an Action, not to a plain RemoteViews click. */
-    private fun addNoteAction(date: LocalDate): NotificationCompat.Action {
-        val remoteInput = RemoteInput.Builder(NotificationActions.REMOTE_INPUT_NOTE_KEY)
-            .setLabel("Anything unusual about today?")
-            .build()
-        val intent = actionIntent(NotificationActions.ACTION_ADD_NOTE, date)
-        // RemoteInput results require a MUTABLE PendingIntent (the system fills in the
-        // reply before delivering it) - this is the one pending intent here that can't be
-        // immutable.
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, requestCodeFor(date, "note".hashCode().toLong()), intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        )
-        return NotificationCompat.Action.Builder(0, "Add a note", pendingIntent)
-            .addRemoteInput(remoteInput)
-            .build()
-    }
-
     /** Launches [MainActivity] on tapping the notification body - the way to reach the
-     * full check-in (more than 3 factors, or an intensity level for a LEVEL factor). */
+     * full check-in (more than 3 factors, a note, or an intensity level for a LEVEL
+     * factor). */
     private fun openAppPendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
