@@ -2,4 +2,6 @@
     <string name="app_name">No Guts No Glory</string>
     <string name="reminder_title">Quick stomach check</string>
     <string name="reminder_body">How was today?</string>
+    <string name="notification_nothing_notable">Nothing notable</string>
+    <string name="notification_save">Save</string>
 </resources>

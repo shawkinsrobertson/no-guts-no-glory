@@ -22,6 +22,10 @@ data class SettingsUiState(
     val loading: Boolean = true,
     val name: String = "",
     val targetPercent: Double = 40.0,
+    /** Sum of currently active LOAD factor weights - lets the target (stored as a
+     * percent, so it stays meaningful as factors are added/removed) be shown in points,
+     * which is what the user reads day to day. */
+    val maxPossibleDailyLoad: Double = 0.0,
     val reminderEnabled: Boolean = false,
     val reminderHour: Int = 20,
     val reminderMinute: Int = 0,
@@ -41,12 +45,15 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    private val _currentName = MutableStateFlow<String?>(null)
+
     init {
-        combine(userPreferencesRepository.profile, factorRepository.allFactors) { profile, factors ->
+        combine(userPreferencesRepository.profile, factorRepository.allFactors, _currentName) { profile, factors, currentName ->
             SettingsUiState(
                 loading = false,
-                name = profile.name,
+                name = currentName ?: profile.name,
                 targetPercent = profile.targetPercent,
+                maxPossibleDailyLoad = factors.filter { it.active && it.category == FactorCategory.LOAD }.sumOf { it.weight },
                 reminderEnabled = profile.reminderEnabled,
                 reminderHour = profile.reminderHour,
                 reminderMinute = profile.reminderMinute,
@@ -60,6 +67,7 @@ class SettingsViewModel(
     }
 
     fun updateName(name: String) {
+        _currentName.value = name
         viewModelScope.launch { userPreferencesRepository.updateName(name) }
     }
 

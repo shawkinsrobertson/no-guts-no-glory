@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-const val ONBOARDING_STEP_COUNT = 4
+const val ONBOARDING_STEP_COUNT = 6
 
 /** Factors with sortOrder below this are considered "common" and preselected (plan section 31). */
 private const val COMMON_FACTOR_SORT_ORDER_CEILING = 10
@@ -35,6 +35,19 @@ data class OnboardingUiState(
     val finished: Boolean = false
 ) {
     val selectedFactors: List<FactorEntity> get() = trackableFactors.filter { it.id in selectedFactorIds }
+
+    /** Symptoms are tracked but never carry a weight (they don't contribute to the load
+     * score), so the weight step only asks about Stressors/Recovery. */
+    val selectedWeighableFactors: List<FactorEntity>
+        get() = selectedFactors.filter { it.category != FactorCategory.SYMPTOM }
+
+    /** The max possible daily load implied by what's selected so far, using each
+     * factor's in-progress weight from [weights] rather than its stored default - the
+     * scale the target percent (last step) is shown against as points. */
+    val maxPossibleDailyLoad: Double
+        get() = selectedFactors
+            .filter { it.category == FactorCategory.LOAD }
+            .sumOf { (weights[it.id] ?: it.weight.toInt()).toDouble() }
 }
 
 class OnboardingViewModel(
@@ -48,8 +61,10 @@ class OnboardingViewModel(
     init {
         viewModelScope.launch {
             factorRepository.seedDefaultsIfEmpty()
+            // Every category is now trackable from onboarding (Stressors/Recovery/Symptoms
+            // each get their own selection step) - see finish() for why a symptom's weight
+            // is never touched even though this associates one into [weights] below.
             val trackable = factorRepository.allFactors.first()
-                .filter { it.category != FactorCategory.SYMPTOM }
             val preselected = trackable
                 .filter { it.sortOrder < COMMON_FACTOR_SORT_ORDER_CEILING }
                 .map { it.id }
@@ -81,16 +96,24 @@ class OnboardingViewModel(
         _uiState.value = _uiState.value.copy(customFactorDraftName = name)
     }
 
-    fun addCustomFactor() {
+    fun addCustomFactor(category: FactorCategory) {
         val name = _uiState.value.customFactorDraftName.trim()
         if (name.isBlank()) return
         viewModelScope.launch {
-            val id = factorRepository.addCustomFactor(name, FactorCategory.LOAD, InputType.BOOLEAN, weight = 5.0)
-            val updatedFactors = factorRepository.allFactors.first().filter { it.category != FactorCategory.SYMPTOM }
+            // Matches Settings' AddFactorSection: a symptom is a level input with no
+            // weight (it's tracked, not scored); everything else is a boolean at a
+            // reasonable starting weight the user can adjust in the weight step.
+            val (inputType, weight) = if (category == FactorCategory.SYMPTOM) {
+                InputType.LEVEL to 0.0
+            } else {
+                InputType.BOOLEAN to 5.0
+            }
+            val id = factorRepository.addCustomFactor(name, category, inputType, weight)
+            val updatedFactors = factorRepository.allFactors.first()
             _uiState.value = _uiState.value.copy(
                 trackableFactors = updatedFactors,
                 selectedFactorIds = _uiState.value.selectedFactorIds + id,
-                weights = _uiState.value.weights + (id to 5),
+                weights = _uiState.value.weights + (id to weight.toInt().coerceIn(1, 10)),
                 customFactorDraftName = ""
             )
         }
@@ -127,11 +150,16 @@ class OnboardingViewModel(
         viewModelScope.launch {
             for (factor in state.trackableFactors) {
                 val isSelected = factor.id in state.selectedFactorIds
-                val weight = state.weights[factor.id]?.toDouble() ?: factor.weight
-                if (factor.active != isSelected || (isSelected && weight != factor.weight)) {
-                    factorRepository.updateFactor(
-                        factor.copy(active = isSelected, weight = if (isSelected) weight else factor.weight)
-                    )
+                // A symptom's weight is never touched here - it never went through the
+                // weight step (see selectedWeighableFactors), so state.weights holds only
+                // a meaningless placeholder for it, not a real user choice.
+                val weight = when {
+                    factor.category == FactorCategory.SYMPTOM -> factor.weight
+                    isSelected -> state.weights[factor.id]?.toDouble() ?: factor.weight
+                    else -> factor.weight
+                }
+                if (factor.active != isSelected || weight != factor.weight) {
+                    factorRepository.updateFactor(factor.copy(active = isSelected, weight = weight))
                 }
             }
             userPreferencesRepository.updateTargetPercent(state.chosenTargetPercent)

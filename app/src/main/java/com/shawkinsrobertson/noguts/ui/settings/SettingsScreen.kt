@@ -53,6 +53,7 @@ import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.CollapsibleSection
 import com.shawkinsrobertson.noguts.ui.components.WeightNumberField
 import com.shawkinsrobertson.noguts.ui.components.displayName
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 
 @Composable
 fun SettingsScreen() {
@@ -137,7 +138,7 @@ private fun ProfileSection(uiState: SettingsUiState, viewModel: SettingsViewMode
 @Composable
 private fun FactorCategoryCard(category: FactorCategory, factors: List<FactorEntity>, viewModel: SettingsViewModel) {
     if (factors.isEmpty()) return
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -235,7 +236,7 @@ private fun FactorRow(factor: FactorEntity, viewModel: SettingsViewModel) {
 @Composable
 private fun TargetSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
     SectionCard("Your target") {
-        Text("${uiState.targetPercent.toInt()}%", style = MaterialTheme.typography.headlineMedium)
+        Text((uiState.maxPossibleDailyLoad * uiState.targetPercent / 100.0).formatPoints(), style = MaterialTheme.typography.headlineMedium)
         Slider(
             value = uiState.targetPercent.toFloat(),
             onValueChange = { viewModel.updateTargetPercent(it.toDouble()) },

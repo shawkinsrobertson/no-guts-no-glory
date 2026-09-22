@@ -35,15 +35,27 @@ import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.CollapsibleSection
 import com.shawkinsrobertson.noguts.ui.components.RadialLoadGauge
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 import com.shawkinsrobertson.noguts.ui.theme.LocalGaugeColors
+import java.time.LocalDate
 import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun DashboardScreen() {
+fun DashboardScreen(
+    logDate: LocalDate = LocalDate.now(),
+    onReturnToLogbook: () -> Unit = {}
+) {
     val container = LocalAppContainer.current
     val viewModel: DashboardViewModel = viewModel(
+        key = logDate.toString(),
         factory = SimpleViewModelFactory {
-            DashboardViewModel(container.dailyLogRepository, container.factorRepository, container.userPreferencesRepository)
+            DashboardViewModel(
+                container.dailyLogRepository,
+                container.factorRepository,
+                container.userPreferencesRepository,
+                logDate
+            )
         }
     )
     val uiState by viewModel.uiState.collectAsState()
@@ -55,21 +67,29 @@ fun DashboardScreen() {
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item { GreetingHeader(uiState.greetingName) }
+        item { GreetingHeader(uiState) }
         item { LoadGaugeCard(uiState) }
-        item { TodaysLoadCard(uiState.todaysLoadPercent) }
+        item { TodaysLoadCard(uiState) }
         item {
             if (uiState.isEditingToday) {
                 CheckInSection(uiState, viewModel)
             } else {
-                SavedTodaySummary(onEdit = viewModel::startEditingToday)
+                SavedTodaySummary(uiState, onEdit = viewModel::startEditingToday, onReturn = onReturnToLogbook)
             }
         }
     }
 }
 
 @Composable
-private fun GreetingHeader(name: String) {
+private fun GreetingHeader(uiState: DashboardUiState) {
+    if (uiState.logDate != LocalDate.now()) {
+        Text(
+            text = "Logging for ${uiState.logDate.format(DateTimeFormatter.ofPattern("EEEE, MMM d"))}",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        return
+    }
+
     val hour = LocalTime.now().hour
     val greeting = when (hour) {
         in 5..11 -> "Good morning"
@@ -77,7 +97,7 @@ private fun GreetingHeader(name: String) {
         else -> "Good evening"
     }
     Text(
-        text = if (name.isBlank()) greeting else "$greeting, $name",
+        text = if (uiState.greetingName.isBlank()) greeting else "$greeting, ${uiState.greetingName}",
         style = MaterialTheme.typography.headlineMedium
     )
 }
@@ -86,7 +106,12 @@ private fun GreetingHeader(name: String) {
 private fun LoadGaugeCard(uiState: DashboardUiState) {
     val snapshot = uiState.latestSnapshot
     val gaugeColors = LocalGaugeColors.current
+    // The gauge's fill proportion and target tick are still geometry against the
+    // normalized percentage (that's what makes a 270-degree dial meaningful) - only the
+    // number shown at its center switches to raw points.
     val rollingPercent = snapshot?.rolling72Percent
+    val rollingPoints = snapshot?.rolling72Load
+    val targetPoints = snapshot?.targetPercent?.let { uiState.maxPossibleDailyLoad * it / 100.0 }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -100,19 +125,19 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
                 targetPercent = snapshot?.targetPercent
             ) {
                 Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                    if (rollingPercent != null) {
-                        Text("${rollingPercent.toInt()}%", style = MaterialTheme.typography.displayLarge)
+                    if (rollingPoints != null) {
+                        Text(rollingPoints.formatPoints(), style = MaterialTheme.typography.displayLarge)
                     } else {
                         Text("--", style = MaterialTheme.typography.displayLarge)
                     }
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            if (rollingPercent != null) {
+            if (rollingPoints != null) {
                 Text("72-hour stomach load", style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
-                snapshot?.targetPercent?.let { target ->
-                    Text("Target: ${target.toInt()}%", style = MaterialTheme.typography.bodyMedium)
-                    if (rollingPercent > target) {
+                targetPoints?.let { target ->
+                    Text("Target: ${target.formatPoints()}", style = MaterialTheme.typography.bodyMedium)
+                    if (rollingPoints > target) {
                         Text("Above your target", style = MaterialTheme.typography.labelLarge)
                     }
                 }
@@ -138,14 +163,15 @@ private fun LoadGaugeCard(uiState: DashboardUiState) {
 }
 
 @Composable
-private fun TodaysLoadCard(todaysLoadPercent: Double?) {
+private fun TodaysLoadCard(uiState: DashboardUiState) {
+    val label = if (uiState.logDate == LocalDate.now()) "Today's load" else "Daily load"
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Today's load", style = MaterialTheme.typography.titleLarge)
+            Text(label, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                if (todaysLoadPercent != null) "${todaysLoadPercent.toInt()}%" else "Not logged yet",
-                style = if (todaysLoadPercent != null) MaterialTheme.typography.displayLarge else MaterialTheme.typography.titleMedium
+                uiState.todaysLoadPoints?.formatPoints() ?: "Not logged yet",
+                style = if (uiState.todaysLoadPoints != null) MaterialTheme.typography.displayLarge else MaterialTheme.typography.titleMedium
             )
         }
     }
@@ -157,8 +183,10 @@ private fun CheckInSection(uiState: DashboardUiState, viewModel: DashboardViewMo
     var recoveryExpanded by rememberSaveable { mutableStateOf(true) }
     var symptomsExpanded by rememberSaveable { mutableStateOf(true) }
 
+    val sectionTitle = if (uiState.logDate == LocalDate.now()) "Today's check-in" else "Check-in"
+
     Column {
-        Text("Today's check-in", style = MaterialTheme.typography.titleLarge)
+        Text(sectionTitle, style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(12.dp))
 
         if (uiState.stressorFactors.isNotEmpty()) {
@@ -179,6 +207,7 @@ private fun CheckInSection(uiState: DashboardUiState, viewModel: DashboardViewMo
 
         Spacer(modifier = Modifier.height(16.dp))
         Text("Anything worth remembering?", style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(4.dp))
         OutlinedTextField(
             value = uiState.notes,
             onValueChange = viewModel::updateNotes,
@@ -229,13 +258,27 @@ private fun FactorGrid(
 }
 
 @Composable
-private fun SavedTodaySummary(onEdit: () -> Unit) {
+private fun SavedTodaySummary(uiState: DashboardUiState, onEdit: () -> Unit, onReturn: () -> Unit) {
+    val isToday = uiState.logDate == LocalDate.now()
+    val label = if (isToday) "Today's log saved" else "Log saved"
+    val buttonLabel = if (isToday) "Edit today's log" else "Edit log"
+    
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Today's log saved", style = MaterialTheme.typography.titleLarge)
+            Text(label, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(12.dp))
-            OutlinedButton(onClick = onEdit) {
-                Text("Edit today's log")
+            androidx.compose.foundation.layout.Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = onEdit) {
+                    Text(buttonLabel)
+                }
+                
+                if (!isToday) {
+                    OutlinedButton(onClick = onReturn) {
+                        Text("Return to logbook")
+                    }
+                }
             }
         }
     }

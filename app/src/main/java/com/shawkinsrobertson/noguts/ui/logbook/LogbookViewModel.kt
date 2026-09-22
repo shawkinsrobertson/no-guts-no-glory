@@ -4,7 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shawkinsrobertson.noguts.data.db.entity.ScoreSnapshotEntity
 import com.shawkinsrobertson.noguts.data.repository.DailyLogRepository
+import com.shawkinsrobertson.noguts.data.repository.FactorRepository
 import com.shawkinsrobertson.noguts.data.repository.LoggedDay
+import com.shawkinsrobertson.noguts.scoring.FactorCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,10 +18,22 @@ private const val LOGBOOK_PAGE_SIZE = 60
 
 data class LogbookEntry(val loggedDay: LoggedDay, val snapshot: ScoreSnapshotEntity?)
 
-class LogbookViewModel(dailyLogRepository: DailyLogRepository) : ViewModel() {
+class LogbookViewModel(
+    dailyLogRepository: DailyLogRepository,
+    factorRepository: FactorRepository
+) : ViewModel() {
 
     private val _entries = MutableStateFlow<List<LogbookEntry>>(emptyList())
     val entries: StateFlow<List<LogbookEntry>> = _entries.asStateFlow()
+
+    private val _missedDays = MutableStateFlow<List<java.time.LocalDate>>(emptyList())
+    val missedDays: StateFlow<List<java.time.LocalDate>> = _missedDays.asStateFlow()
+
+    /** Currently active LOAD factor weights, summed - the scale a historical day's stored
+     * target percent is converted against for a points display (see DashboardViewModel's
+     * same choice for why "current configuration" rather than that day's own max). */
+    private val _maxPossibleDailyLoad = MutableStateFlow(0.0)
+    val maxPossibleDailyLoad: StateFlow<Double> = _maxPossibleDailyLoad.asStateFlow()
 
     init {
         combine(
@@ -27,9 +41,23 @@ class LogbookViewModel(dailyLogRepository: DailyLogRepository) : ViewModel() {
             dailyLogRepository.observeRecentSnapshots(LOGBOOK_PAGE_SIZE)
         ) { loggedDays, snapshots ->
             val snapshotsByDate = snapshots.associateBy { it.date }
+            val loggedDates = loggedDays.map { it.date }.toSet()
+            
+            val today = java.time.LocalDate.now()
+            val potentialMissed = listOf(today.minusDays(1), today.minusDays(2), today.minusDays(3))
+            _missedDays.value = potentialMissed.filter { it !in loggedDates }.sortedDescending()
+
             loggedDays
                 .sortedByDescending { it.date }
                 .map { LogbookEntry(it, snapshotsByDate[it.date]) }
         }.onEach { _entries.value = it }.launchIn(viewModelScope)
+
+        factorRepository.activeFactors
+            .onEach { factors ->
+                _maxPossibleDailyLoad.value = factors
+                    .filter { it.category == FactorCategory.LOAD }
+                    .sumOf { it.weight }
+            }
+            .launchIn(viewModelScope)
     }
 }

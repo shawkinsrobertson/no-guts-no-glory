@@ -6,24 +6,45 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.view.View
+import android.widget.RemoteViews
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.core.app.RemoteInput
+import com.shawkinsrobertson.noguts.MainActivity
 import com.shawkinsrobertson.noguts.R
 import com.shawkinsrobertson.noguts.data.db.dao.DailyLogFactorDao
 import com.shawkinsrobertson.noguts.data.db.entity.FactorEntity
 import com.shawkinsrobertson.noguts.data.db.entity.PendingNotificationLogEntity
 import com.shawkinsrobertson.noguts.data.repository.FactorRepository
 import com.shawkinsrobertson.noguts.data.repository.PendingNotificationLogRepository
+import com.shawkinsrobertson.noguts.ui.components.formatPoints
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 /**
- * Builds and posts the daily check-in notification, including the interactive version:
- * a stateful set of factor toggle actions (rebuilt and reposted to the same notification
- * ID on every tap, per plan section 19), an inline note via RemoteInput, a one-tap zero
- * day, and a save action that hands off to [com.shawkinsrobertson.noguts.data.repository.DailyLogRepository].
+ * Builds and posts the daily check-in notification, including the interactive version: up
+ * to 3 quick-toggle factor buttons (rebuilt and reposted to the same notification ID on
+ * every tap, per plan section 19), a one-tap zero day, and a save action.
+ *
+ * A standard notification's addAction() row only ever renders the first 3 actions - past
+ * that, extras are silently dropped, not overflowed into a menu. That's not enough room
+ * for 3 factor toggles plus "Nothing notable" plus "Save", so this uses a *custom* content
+ * view instead (setCustomBigContentView): all 5 buttons are plain RemoteViews Buttons
+ * wired with setOnClickPendingIntent, which aren't subject to that 3-action cap at all
+ * since they're not NotificationCompat.Action objects.
+ *
+ * There's deliberately no inline "add a note" action here. It was tried as a
+ * NotificationCompat.Action with a RemoteInput reply (RemoteInput can only attach to a
+ * real Action, not a RemoteViews click, so it couldn't be a 6th button) - but reposting
+ * the notification on a factor toggle while that reply box was open didn't cleanly
+ * replace it: Android tries to preserve an in-progress reply across an update to the same
+ * notification, and with this one restyled via DecoratedCustomViewStyle on every repost,
+ * that produced two overlapping reply boxes rather than one. "Nothing notable"/"Save"
+ * never hit this because they swap in the plain "Logged" confirmation, which drops the
+ * custom view and the reply action entirely rather than updating in place. Notes and
+ * intensity levels for a LEVEL factor both still work from the full check-in, reachable
+ * by tapping the notification body.
  */
 class DailyReminderNotifier(
     private val context: Context,
@@ -41,8 +62,8 @@ class DailyReminderNotifier(
         postInteractive(date, shownFactors, pending)
     }
 
-    /** Rebuilds and reposts the interactive notification after a toggle or note capture,
-     * reusing the same factor set the pending log already committed to. */
+    /** Rebuilds and reposts the interactive notification after a factor toggle, reusing
+     * the same factor set the pending log already committed to. */
     suspend fun refreshInteractive(date: LocalDate) {
         val pending = pendingRepository.get(date) ?: return
         val shownFactors = factorRepository.getByIds(pending.shownFactorIds)
@@ -62,31 +83,48 @@ class DailyReminderNotifier(
             return
         }
 
+        val remoteViews = RemoteViews(context.packageName, R.layout.notification_interactive)
+
+        QUICK_TOGGLE_BUTTON_IDS.forEachIndexed { index, buttonId ->
+            val factor = shownFactors.getOrNull(index)
+            if (factor == null) {
+                remoteViews.setViewVisibility(buttonId, View.GONE)
+            } else {
+                val selected = factor.id in pending.selectedFactorIds
+                remoteViews.setViewVisibility(buttonId, View.VISIBLE)
+                remoteViews.setTextViewText(buttonId, if (selected) "✓ ${factor.name}" else factor.name)
+                remoteViews.setOnClickPendingIntent(buttonId, toggleFactorPendingIntent(date, factor.id))
+            }
+        }
+        remoteViews.setOnClickPendingIntent(
+            R.id.nothing_notable_button,
+            simplePendingIntent(date, NotificationActions.ACTION_NOTHING_NOTABLE)
+        )
+        remoteViews.setOnClickPendingIntent(R.id.save_button, simplePendingIntent(date, NotificationActions.ACTION_SAVE))
+
         val builder = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHECK_IN)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.reminder_title))
             .setContentText(context.getString(R.string.reminder_body))
+            // DecoratedCustomViewStyle wraps remoteViews with the normal notification chrome
+            // (small icon, app name, timestamp, expand affordance) instead of it standing
+            // alone - otherwise a custom big content view looks bare/unbranded.
+            .setStyle(NotificationCompat.DecoratedCustomViewStyle())
+            .setCustomBigContentView(remoteViews)
             // Deliberately not ongoing: plan section 23 expects the user to be able to
             // dismiss it and still resume from the persisted pending state later.
             .setOnlyAlertOnce(true)
             .setAutoCancel(false)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-
-        shownFactors.forEach { factor ->
-            val selected = factor.id in pending.selectedFactorIds
-            val title = if (selected) "✓ ${factor.name}" else factor.name
-            builder.addAction(toggleAction(date, factor.id, title))
-        }
-        builder.addAction(addNoteAction(date))
-        builder.addAction(simpleAction(date, NotificationActions.ACTION_NOTHING_NOTABLE, "Nothing notable"))
-        builder.addAction(simpleAction(date, NotificationActions.ACTION_SAVE, "Save"))
+            .setContentIntent(openAppPendingIntent())
 
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, builder.build())
     }
 
-    /** Posts the final, non-interactive confirmation once the day is saved (section 22). */
+    /** Posts the final, non-interactive confirmation once the day is saved (section 22).
+     * Points, not the normalized percentage - same as everywhere else in the UI. */
     @SuppressLint("MissingPermission")
-    fun postSavedResult(dailyPercent: Double?, rolling72Percent: Double?, targetPercent: Double?) {
+    fun postSavedResult(dailyPoints: Double?, rolling72Points: Double?, targetPoints: Double?) {
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
@@ -95,9 +133,9 @@ class DailyReminderNotifier(
 
         val body = buildString {
             append("Logged")
-            dailyPercent?.let { append("\nToday's load: ${it.toInt()}%") }
-            rolling72Percent?.let { append("\n72-hour load: ${it.toInt()}%") }
-            targetPercent?.let { append("\nTarget: ${it.toInt()}%") }
+            dailyPoints?.let { append("\nToday's load: ${it.formatPoints()}") }
+            rolling72Points?.let { append("\n72-hour load: ${it.formatPoints()}") }
+            targetPoints?.let { append("\nTarget: ${it.formatPoints()}") }
         }
 
         val notification = NotificationCompat.Builder(context, NotificationChannels.DAILY_CHECK_IN)
@@ -107,45 +145,40 @@ class DailyReminderNotifier(
             .setContentText(body.lineSequence().drop(1).firstOrNull() ?: "Today's log saved")
             .setOngoing(false)
             .setAutoCancel(true)
+            .setContentIntent(openAppPendingIntent())
             .build()
 
         NotificationManagerCompat.from(context).notify(REMINDER_NOTIFICATION_ID, notification)
     }
 
-    private fun toggleAction(date: LocalDate, factorId: Long, title: String): NotificationCompat.Action {
+    private fun toggleFactorPendingIntent(date: LocalDate, factorId: Long): PendingIntent {
         val intent = actionIntent(NotificationActions.ACTION_TOGGLE_FACTOR, date).apply {
             putExtra(NotificationActions.EXTRA_FACTOR_ID, factorId)
         }
         val requestCode = requestCodeFor(date, factorId)
-        val pendingIntent = PendingIntent.getBroadcast(
+        return PendingIntent.getBroadcast(
             context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Action.Builder(0, title, pendingIntent).build()
     }
 
-    private fun simpleAction(date: LocalDate, action: String, title: String): NotificationCompat.Action {
+    private fun simplePendingIntent(date: LocalDate, action: String): PendingIntent {
         val intent = actionIntent(action, date)
-        val pendingIntent = PendingIntent.getBroadcast(
+        return PendingIntent.getBroadcast(
             context, requestCodeFor(date, action.hashCode().toLong()), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Action.Builder(0, title, pendingIntent).build()
     }
 
-    private fun addNoteAction(date: LocalDate): NotificationCompat.Action {
-        val remoteInput = RemoteInput.Builder(NotificationActions.REMOTE_INPUT_NOTE_KEY)
-            .setLabel("Anything unusual about today?")
-            .build()
-        val intent = actionIntent(NotificationActions.ACTION_ADD_NOTE, date)
-        // RemoteInput results require a MUTABLE PendingIntent (the system fills in the
-        // reply before delivering it) - this is the one action here that can't be immutable.
-        val pendingIntent = PendingIntent.getBroadcast(
-            context, requestCodeFor(date, "note".hashCode().toLong()), intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+    /** Launches [MainActivity] on tapping the notification body - the way to reach the
+     * full check-in (more than 3 factors, a note, or an intensity level for a LEVEL
+     * factor). */
+    private fun openAppPendingIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
-        return NotificationCompat.Action.Builder(0, "Add a note", pendingIntent)
-            .addRemoteInput(remoteInput)
-            .build()
     }
 
     private fun actionIntent(action: String, date: LocalDate): Intent =
@@ -159,5 +192,14 @@ class DailyReminderNotifier(
 
     companion object {
         const val REMINDER_NOTIFICATION_ID = 42
+
+        /** The 3 fixed factor-button slots in notification_interactive.xml, in display
+         * order - RemoteViews needs static view IDs, so factors are bound into these by
+         * position rather than one button being generated per factor. */
+        private val QUICK_TOGGLE_BUTTON_IDS = listOf(
+            R.id.factor_button_1,
+            R.id.factor_button_2,
+            R.id.factor_button_3
+        )
     }
 }

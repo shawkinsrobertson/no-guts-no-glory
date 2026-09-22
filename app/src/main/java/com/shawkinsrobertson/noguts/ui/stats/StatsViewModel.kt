@@ -8,6 +8,7 @@ import com.shawkinsrobertson.noguts.scoring.FactorCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -17,7 +18,11 @@ private const val TREND_POINT_COUNT = 7
 private const val LOOKBACK_FOR_SNAPSHOTS = 30
 private const val COMMON_FACTOR_WINDOW_DAYS = 7L
 
-data class TrendPoint(val date: LocalDate, val rolling72Percent: Double, val targetPercent: Double)
+/** Raw points, not the normalized percentage - see plan feedback: points are what the
+ * user is used to reading. [targetLoad] is each day's stored target percent converted
+ * against the *current* active-factor configuration, same "as configured now" choice the
+ * scoring engine itself makes for the rolling load (see ScoringEngine.kt). */
+data class TrendPoint(val date: LocalDate, val rolling72Load: Double, val targetLoad: Double)
 
 data class MostCommonFactor(val name: String, val selectionCount: Int, val loggedDayCount: Int)
 
@@ -36,16 +41,22 @@ class StatsViewModel(
     val uiState: StateFlow<StatsUiState> = _uiState.asStateFlow()
 
     init {
-        dailyLogRepository.observeRecentSnapshots(LOOKBACK_FOR_SNAPSHOTS)
-            .onEach { snapshots ->
-                val points = snapshots
-                    .filter { it.rolling72Percent != null }
-                    .sortedBy { it.date }
-                    .takeLast(TREND_POINT_COUNT)
-                    .map { TrendPoint(it.date, it.rolling72Percent!!, it.targetPercent) }
-                _uiState.value = _uiState.value.copy(loading = false, trendPoints = points)
-            }
-            .launchIn(viewModelScope)
+        combine(
+            dailyLogRepository.observeRecentSnapshots(LOOKBACK_FOR_SNAPSHOTS),
+            factorRepository.activeFactors
+        ) { snapshots, activeFactors ->
+            val maxPossibleDailyLoad = activeFactors
+                .filter { it.category == FactorCategory.LOAD }
+                .sumOf { it.weight }
+
+            snapshots
+                .filter { it.rolling72Load != null }
+                .sortedBy { it.date }
+                .takeLast(TREND_POINT_COUNT)
+                .map { TrendPoint(it.date, it.rolling72Load!!, maxPossibleDailyLoad * it.targetPercent / 100.0) }
+        }.onEach { points ->
+            _uiState.value = _uiState.value.copy(loading = false, trendPoints = points)
+        }.launchIn(viewModelScope)
 
         viewModelScope.launch { loadMostCommonFactor() }
     }
