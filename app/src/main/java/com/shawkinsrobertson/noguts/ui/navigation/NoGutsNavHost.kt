@@ -40,27 +40,35 @@ fun NoGutsNavHost(startAtOnboarding: Boolean) {
     // Don't show the bottom bar on the onboarding screen
     val isOnboarding = currentDestination?.hierarchy?.any { it.route == ONBOARDING_ROUTE } == true
 
+    // The historical/edit-a-missed-day screen is the same Dashboard composable/route as
+    // "Home", distinguished only by its date argument - so this has to be checked from
+    // the actual back stack entry's arguments, not from the destination's route pattern
+    // (that's the same string, "dashboard?date={date}", whether or not a date was
+    // supplied). Computed once and reused by both the selected-tab highlight below and
+    // the "tapping Home from a historical day resets to today" behavior in its onClick.
+    val onDashboardRoute = currentDestination?.hierarchy?.any { it.route == NoGutsDestination.Dashboard.routeWithArgs } == true
+    val isOnHistoricalDashboard = onDashboardRoute &&
+        navBackStackEntry?.arguments?.getString(NoGutsDestination.Dashboard.argDate) != null
+
     Scaffold(
         bottomBar = {
             if (!isOnboarding) {
                 NavigationBar {
                     bottomNavDestinations.forEach { destination ->
-                        // Match against base route OR the route with args pattern for the Dashboard
-                        val isSelected = currentDestination?.hierarchy?.any { 
-                            it.route == destination.route || 
-                            (destination == NoGutsDestination.Dashboard && it.route == NoGutsDestination.Dashboard.routeWithArgs)
-                        } == true
-                        
+                        val isSelected = if (destination == NoGutsDestination.Dashboard) {
+                            onDashboardRoute && !isOnHistoricalDashboard
+                        } else {
+                            currentDestination?.hierarchy?.any { it.route == destination.route } == true
+                        }
+
                         NavigationBarItem(
                             selected = isSelected,
                             icon = { Icon(destination.icon, contentDescription = destination.label) },
                             label = { Text(destination.label) },
                             onClick = {
                                 // If we're on a historical dashboard and click the Home tab, we want to go back to "Today"
-                                val isHistoricalDashboard = destination == NoGutsDestination.Dashboard && 
-                                        isSelected &&
-                                        navBackStackEntry?.arguments?.getString(NoGutsDestination.Dashboard.argDate) != null
-                                
+                                val isHistoricalDashboard = destination == NoGutsDestination.Dashboard && isOnHistoricalDashboard
+
                                 if (!isSelected || isHistoricalDashboard) {
                                     navController.navigate(destination.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
@@ -104,15 +112,14 @@ fun NoGutsNavHost(startAtOnboarding: Boolean) {
                 val date = dateString?.let { LocalDate.parse(it) } ?: LocalDate.now()
                 DashboardScreen(
                     logDate = date,
-                    onReturnToLogbook = {
-                        navController.navigate(NoGutsDestination.Logbook.route) {
-                            popUpTo(navController.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    }
+                    // A plain pop, not a tab-switch navigate(): this screen only ever gets
+                    // pushed from Logbook (see onNavigateToDashboard below), so Logbook is
+                    // always the entry directly underneath on the back stack. The tab-switch
+                    // popUpTo(startDestinationId)/saveState/restoreState pattern used by the
+                    // bottom nav doesn't work here because this screen shares its NavGraph
+                    // node (and therefore its id) with the Home tab's "today" destination -
+                    // popUpTo would be searching for the very node it's already sitting on.
+                    onReturnToLogbook = { navController.popBackStack() }
                 )
             }
             
