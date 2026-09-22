@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shawkinsrobertson.noguts.notifications.ReminderScheduler
+import com.shawkinsrobertson.noguts.scoring.FactorCategory
 import com.shawkinsrobertson.noguts.ui.LocalAppContainer
 import com.shawkinsrobertson.noguts.ui.SimpleViewModelFactory
 import com.shawkinsrobertson.noguts.ui.components.WeightNumberField
@@ -91,9 +92,21 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         Column(modifier = Modifier.weight(1f)) {
             when (uiState.step) {
                 0 -> IntroStep()
-                1 -> FactorSelectionStep(uiState, viewModel)
-                2 -> WeightStep(uiState, viewModel)
-                3 -> TargetAndReminderStep(uiState, viewModel)
+                1 -> FactorCategorySelectionStep(
+                    uiState, viewModel, FactorCategory.LOAD,
+                    title = "What are your common stressors?"
+                )
+                2 -> FactorCategorySelectionStep(
+                    uiState, viewModel, FactorCategory.RECOVERY,
+                    title = "What are some things that help you recover?"
+                )
+                3 -> FactorCategorySelectionStep(
+                    uiState, viewModel, FactorCategory.SYMPTOM,
+                    title = "What are some symptoms you would like to track?",
+                    prefilledHint = false
+                )
+                4 -> WeightStep(uiState, viewModel)
+                5 -> TargetAndReminderStep(uiState, viewModel)
             }
         }
 
@@ -128,14 +141,31 @@ private fun IntroStep() {
     }
 }
 
+/** One selection screen per factor category (Stressors/Recovery/Symptoms) rather than a
+ * single mixed grid - each asks its own question and only offers "add your own" into
+ * that category. [prefilledHint] controls whether the subtitle mentions pre-selection;
+ * only Stressors/Recovery actually come with anything pre-checked (see
+ * COMMON_FACTOR_SORT_ORDER_CEILING in the ViewModel - symptoms all sort well past it). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FactorSelectionStep(uiState: OnboardingUiState, viewModel: OnboardingViewModel) {
+private fun FactorCategorySelectionStep(
+    uiState: OnboardingUiState,
+    viewModel: OnboardingViewModel,
+    category: FactorCategory,
+    title: String,
+    prefilledHint: Boolean = true
+) {
+    val factors = uiState.trackableFactors.filter { it.category == category }
+
     Column(modifier = Modifier.fillMaxSize()) {
-        Text("Choose the things you want to track", style = MaterialTheme.typography.titleLarge)
+        Text(title, style = MaterialTheme.typography.titleLarge)
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            "We've pre-selected a few common ones - tap any card to add or remove it.",
+            if (prefilledHint) {
+                "We've pre-selected a few common ones - tap any card to add or remove it."
+            } else {
+                "Tap any card to add or remove it."
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -147,7 +177,7 @@ private fun FactorSelectionStep(uiState: OnboardingUiState, viewModel: Onboardin
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                uiState.trackableFactors.forEach { factor ->
+                factors.forEach { factor ->
                     OnboardingFactorChip(
                         name = factor.name,
                         selected = factor.id in uiState.selectedFactorIds,
@@ -165,7 +195,7 @@ private fun FactorSelectionStep(uiState: OnboardingUiState, viewModel: Onboardin
                 label = { Text("+ Add your own") },
                 modifier = Modifier.weight(1f)
             )
-            TextButton(onClick = viewModel::addCustomFactor) { Text("Add") }
+            TextButton(onClick = { viewModel.addCustomFactor(category) }) { Text("Add") }
         }
     }
 }
@@ -216,7 +246,7 @@ private fun WeightStep(uiState: OnboardingUiState, viewModel: OnboardingViewMode
         )
         Spacer(modifier = Modifier.height(16.dp))
         LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(uiState.selectedFactors, key = { it.id }) { factor ->
+            items(uiState.selectedWeighableFactors, key = { it.id }) { factor ->
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(16.dp),
