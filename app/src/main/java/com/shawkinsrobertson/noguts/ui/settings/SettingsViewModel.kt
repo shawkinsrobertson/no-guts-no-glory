@@ -45,11 +45,13 @@ class SettingsViewModel(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    private val _currentName = MutableStateFlow<String?>(null)
+
     init {
-        combine(userPreferencesRepository.profile, factorRepository.allFactors) { profile, factors ->
+        combine(userPreferencesRepository.profile, factorRepository.allFactors, _currentName) { profile, factors, currentName ->
             SettingsUiState(
                 loading = false,
-                name = profile.name,
+                name = currentName ?: profile.name,
                 targetPercent = profile.targetPercent,
                 maxPossibleDailyLoad = factors.filter { it.active && it.category == FactorCategory.LOAD }.sumOf { it.weight },
                 reminderEnabled = profile.reminderEnabled,
@@ -65,6 +67,7 @@ class SettingsViewModel(
     }
 
     fun updateName(name: String) {
+        _currentName.value = name
         viewModelScope.launch { userPreferencesRepository.updateName(name) }
     }
 

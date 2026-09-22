@@ -26,6 +26,9 @@ class LogbookViewModel(
     private val _entries = MutableStateFlow<List<LogbookEntry>>(emptyList())
     val entries: StateFlow<List<LogbookEntry>> = _entries.asStateFlow()
 
+    private val _missedDays = MutableStateFlow<List<java.time.LocalDate>>(emptyList())
+    val missedDays: StateFlow<List<java.time.LocalDate>> = _missedDays.asStateFlow()
+
     /** Currently active LOAD factor weights, summed - the scale a historical day's stored
      * target percent is converted against for a points display (see DashboardViewModel's
      * same choice for why "current configuration" rather than that day's own max). */
@@ -38,6 +41,12 @@ class LogbookViewModel(
             dailyLogRepository.observeRecentSnapshots(LOGBOOK_PAGE_SIZE)
         ) { loggedDays, snapshots ->
             val snapshotsByDate = snapshots.associateBy { it.date }
+            val loggedDates = loggedDays.map { it.date }.toSet()
+            
+            val today = java.time.LocalDate.now()
+            val potentialMissed = listOf(today.minusDays(1), today.minusDays(2), today.minusDays(3))
+            _missedDays.value = potentialMissed.filter { it !in loggedDates }.sortedDescending()
+
             loggedDays
                 .sortedByDescending { it.date }
                 .map { LogbookEntry(it, snapshotsByDate[it.date]) }

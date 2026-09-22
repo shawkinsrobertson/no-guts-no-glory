@@ -10,7 +10,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 const val ONBOARDING_ROUTE = "onboarding"
 
 sealed class NoGutsDestination(val route: String, val label: String, val icon: ImageVector) {
-    data object Dashboard : NoGutsDestination("dashboard", "Home", Icons.Filled.Home)
+    data object Dashboard : NoGutsDestination("dashboard", "Home", Icons.Filled.Home) {
+        const val argDate = "date"
+        val routeWithArgs = "$route?$argDate={$argDate}"
+        fun createRoute(date: java.time.LocalDate) = "$route?$argDate=$date"
+    }
     data object Logbook : NoGutsDestination("logbook", "Logbook", Icons.AutoMirrored.Filled.MenuBook)
     data object Stats : NoGutsDestination("stats", "Stats", Icons.Filled.BarChart)
     data object Settings : NoGutsDestination("settings", "Settings", Icons.Filled.Settings)

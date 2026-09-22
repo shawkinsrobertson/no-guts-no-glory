@@ -62,6 +62,8 @@ class DailyLogRepository(
 
     fun observeLatestSnapshot(): Flow<ScoreSnapshotEntity?> = scoreSnapshotDao.observeLatest()
 
+    fun observeSnapshotForDate(date: LocalDate): Flow<ScoreSnapshotEntity?> = scoreSnapshotDao.observeByDate(date)
+
     suspend fun getSelectionStatsSince(date: LocalDate): List<FactorSelectionStat> =
         dailyLogFactorDao.getSelectionStatsSince(date)
 

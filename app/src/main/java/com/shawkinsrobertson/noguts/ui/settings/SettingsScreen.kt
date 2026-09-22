@@ -138,7 +138,7 @@ private fun ProfileSection(uiState: SettingsUiState, viewModel: SettingsViewMode
 @Composable
 private fun FactorCategoryCard(category: FactorCategory, factors: List<FactorEntity>, viewModel: SettingsViewModel) {
     if (factors.isEmpty()) return
-    var expanded by rememberSaveable { mutableStateOf(true) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {

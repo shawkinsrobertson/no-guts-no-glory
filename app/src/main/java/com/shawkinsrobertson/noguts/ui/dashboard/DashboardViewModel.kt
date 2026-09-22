@@ -22,6 +22,7 @@ data class DashboardUiState(
     val loading: Boolean = true,
     val greetingName: String = "",
     val latestSnapshot: ScoreSnapshotEntity? = null,
+    val logDateSnapshot: ScoreSnapshotEntity? = null,
     /** Only non-null once today itself has a saved snapshot - a stale prior day's
      * score is never shown as "today's load". Raw points, not the normalized percentage -
      * see plan feedback: points are what the user is used to reading. */
@@ -38,27 +39,28 @@ data class DashboardUiState(
     val todayAlreadyLogged: Boolean = false,
     val isEditingToday: Boolean = true,
     val isSaving: Boolean = false,
-    val justSaved: Boolean = false
+    val justSaved: Boolean = false,
+    val logDate: LocalDate = LocalDate.now()
 )
 
 class DashboardViewModel(
     private val dailyLogRepository: DailyLogRepository,
     private val factorRepository: FactorRepository,
-    private val userPreferencesRepository: UserPreferencesRepository
+    private val userPreferencesRepository: UserPreferencesRepository,
+    val logDate: LocalDate = LocalDate.now()
 ) : ViewModel() {
 
-    private val today: LocalDate = LocalDate.now()
-
-    private val _uiState = MutableStateFlow(DashboardUiState())
+    private val _uiState = MutableStateFlow(DashboardUiState(logDate = logDate))
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
         combine(
             factorRepository.activeFactors,
-            dailyLogRepository.observeLogForDate(today),
+            dailyLogRepository.observeLogForDate(logDate),
             dailyLogRepository.observeLatestSnapshot(),
+            dailyLogRepository.observeSnapshotForDate(logDate),
             userPreferencesRepository.profile
-        ) { activeFactors, todayLog, latestSnapshot, profile ->
+        ) { activeFactors, todayLog, latestSnapshot, logDateSnapshot, profile ->
             val byCategory = activeFactors.groupBy { it.category }
             val current = _uiState.value
 
@@ -66,7 +68,8 @@ class DashboardViewModel(
                 loading = false,
                 greetingName = profile.name,
                 latestSnapshot = latestSnapshot,
-                todaysLoadPoints = latestSnapshot?.takeIf { it.date == today }?.dailyLoad,
+                logDateSnapshot = logDateSnapshot,
+                todaysLoadPoints = logDateSnapshot?.dailyLoad,
                 maxPossibleDailyLoad = byCategory[FactorCategory.LOAD].orEmpty().sumOf { it.weight },
                 stressorFactors = byCategory[FactorCategory.LOAD].orEmpty().sortedBy { it.sortOrder },
                 recoveryFactors = byCategory[FactorCategory.RECOVERY].orEmpty().sortedBy { it.sortOrder },
@@ -76,7 +79,8 @@ class DashboardViewModel(
                 todayAlreadyLogged = todayLog != null,
                 isEditingToday = current.loading || todayLog == null || current.isEditingToday,
                 isSaving = false,
-                justSaved = current.justSaved
+                justSaved = current.justSaved,
+                logDate = logDate
             )
         }.onEach { _uiState.value = it }.launchIn(viewModelScope)
     }
@@ -119,7 +123,7 @@ class DashboardViewModel(
         _uiState.value = state.copy(isSaving = true)
         viewModelScope.launch {
             dailyLogRepository.saveDailyLog(
-                today,
+                logDate,
                 state.selections.toFactorLogInputs(),
                 notes = state.notes.ifBlank { null }
             )
@@ -131,7 +135,7 @@ class DashboardViewModel(
     fun logNothingNotable() {
         _uiState.value = _uiState.value.copy(isSaving = true)
         viewModelScope.launch {
-            dailyLogRepository.saveZeroDay(today)
+            dailyLogRepository.saveZeroDay(logDate)
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
                 isEditingToday = false,

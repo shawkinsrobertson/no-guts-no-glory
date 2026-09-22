@@ -11,7 +11,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
+import androidx.compose.material3.ElevatedAssistChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -37,27 +41,35 @@ import java.time.format.FormatStyle
 private val DATE_FORMATTER = DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG)
 
 @Composable
-fun LogbookScreen() {
+fun LogbookScreen(onNavigateToDashboard: (java.time.LocalDate) -> Unit) {
     val container = LocalAppContainer.current
     val viewModel: LogbookViewModel = viewModel(
         factory = SimpleViewModelFactory { LogbookViewModel(container.dailyLogRepository, container.factorRepository) }
     )
     val entries by viewModel.entries.collectAsState()
+    val missedDays by viewModel.missedDays.collectAsState()
     val maxPossibleDailyLoad by viewModel.maxPossibleDailyLoad.collectAsState()
     var selected by remember { mutableStateOf<LogbookEntry?>(null) }
-
-    if (entries.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Nothing logged yet.", style = MaterialTheme.typography.bodyLarge)
-        }
-        return
-    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        if (missedDays.isNotEmpty()) {
+            item {
+                MissedDaysSection(missedDays, onNavigateToDashboard)
+            }
+        }
+
+        if (entries.isEmpty() && missedDays.isEmpty()) {
+            item {
+                Box(modifier = Modifier.fillParentMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Nothing logged yet.", style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+
         items(entries, key = { it.loggedDay.date }) { entry ->
             LogbookRow(entry, onClick = { selected = entry })
         }
@@ -65,6 +77,26 @@ fun LogbookScreen() {
 
     selected?.let { entry ->
         DayDetailDialog(entry, maxPossibleDailyLoad, onDismiss = { selected = null })
+    }
+}
+
+@Composable
+private fun MissedDaysSection(missedDays: List<java.time.LocalDate>, onLog: (java.time.LocalDate) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        Text("Missed days", style = MaterialTheme.typography.titleMedium)
+        Spacer(modifier = Modifier.height(8.dp))
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            missedDays.forEach { date ->
+                ElevatedAssistChip(
+                    onClick = { onLog(date) },
+                    label = { Text(date.format(DateTimeFormatter.ofPattern("EEE, MMM d"))) },
+                    leadingIcon = { Icon(Icons.Default.Add, contentDescription = null) }
+                )
+            }
+        }
     }
 }
 
