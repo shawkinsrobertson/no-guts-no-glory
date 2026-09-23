@@ -29,4 +29,17 @@ interface DailyLogFactorDao {
         """
     )
     suspend fun getSelectionStatsSince(sinceDate: LocalDate): List<FactorSelectionStat>
+
+    /** Same as [getSelectionStatsSince] but bounded on both ends, for the PDF report's
+     * "most common factors" over an arbitrary (possibly not-ending-today) range. */
+    @Query(
+        """
+        SELECT dlf.factorId AS factorId, COUNT(*) AS selectionCount, MAX(dl.date) AS lastSelectedDate
+        FROM daily_log_factors dlf
+        INNER JOIN daily_logs dl ON dl.id = dlf.dailyLogId
+        WHERE dl.date BETWEEN :start AND :end
+        GROUP BY dlf.factorId
+        """
+    )
+    suspend fun getSelectionStatsBetween(start: LocalDate, end: LocalDate): List<FactorSelectionStat>
 }

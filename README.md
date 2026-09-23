@@ -12,9 +12,9 @@ This is a personal tracking tool, not a medical device. It doesn't diagnose anyt
 - **Load score**: each factor has a configurable weight; selecting it (optionally at an intensity) contributes points. Recovery factors offset load, capped at 30% of that day's gross load so a single good day can't erase a bad one.
 - **72-hour rolling load**: the score shown day to day is a 3-day rolling mean of raw points, the same point values you're logging factors in. Internally it's also normalized against the maximum possible load from your currently active factors (that's what sizes the gauge and picks its green/yellow/red band), but the number displayed is points, not a percentage. A missing day is never treated as zero — only an explicitly logged day (including a deliberate "nothing notable" zero) counts.
 - **Target**: a personal, self-chosen threshold — not a medical cutoff — shown alongside the absolute green/yellow/red gauge bands.
-- **Notification logging**: the daily reminder lets you toggle your single most personally relevant factor (ranked by how often/recently you've picked them) and save, or mark the day "nothing notable" — right from the notification, no need to open the app. Android only ever shows 3 action buttons on a notification, so anything beyond that one quick toggle (more factors, an intensity level, a note) means tapping the notification to open the full check-in.
+- **Notification logging**: the daily reminder shows your 3 most personally relevant factors (ranked by how often/recently you've picked them) plus "Nothing notable" and "Save," right from the notification — no need to open the app. Picking an intensity level, a note, or a factor beyond those 3 means tapping the notification to open the full check-in.
 - **Logbook & Stats**: a plain history of what was actually recorded each day, a 7-day trend graph, and a "what's showing up most" card — with guardrails against implying causation from a handful of data points.
-- **Your data**: fully local, no account, no server. Export everything as CSV whenever you want it.
+- **Your data**: fully local, no account, no server. Export everything as CSV whenever you want it, or generate a PDF report (trend chart, a table for whatever date range you pick, and your most common factors) to actually read or print.
 
 ## Project structure
 

@@ -32,6 +32,11 @@ interface DailyLogDao {
     @Query("SELECT * FROM daily_logs WHERE date BETWEEN :start AND :end ORDER BY date ASC")
     suspend fun getBetween(start: LocalDate, end: LocalDate): List<DailyLogEntity>
 
+    /** One-shot range read for the PDF report - no need to stay subscribed for that. */
+    @Transaction
+    @Query("SELECT * FROM daily_logs WHERE date BETWEEN :start AND :end ORDER BY date ASC")
+    suspend fun getBetweenWithFactors(start: LocalDate, end: LocalDate): List<DailyLogWithFactorEntities>
+
     @Query("SELECT COUNT(*) FROM daily_logs WHERE date BETWEEN :start AND :end AND status = 'LOGGED'")
     suspend fun countLoggedBetween(start: LocalDate, end: LocalDate): Int
 
