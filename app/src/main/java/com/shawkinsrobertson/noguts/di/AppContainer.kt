@@ -6,6 +6,7 @@ import com.shawkinsrobertson.noguts.data.db.AppDatabase
 import com.shawkinsrobertson.noguts.data.repository.CsvExportRepository
 import com.shawkinsrobertson.noguts.data.repository.DailyLogRepository
 import com.shawkinsrobertson.noguts.data.repository.FactorRepository
+import com.shawkinsrobertson.noguts.data.repository.PdfReportRepository
 import com.shawkinsrobertson.noguts.data.repository.PendingNotificationLogRepository
 import com.shawkinsrobertson.noguts.notifications.DailyReminderNotifier
 
@@ -48,5 +49,9 @@ class AppContainer(context: Context) {
 
     val csvExportRepository: CsvExportRepository by lazy {
         CsvExportRepository(appContext, dailyLogRepository)
+    }
+
+    val pdfReportRepository: PdfReportRepository by lazy {
+        PdfReportRepository(appContext, dailyLogRepository, factorRepository)
     }
 }

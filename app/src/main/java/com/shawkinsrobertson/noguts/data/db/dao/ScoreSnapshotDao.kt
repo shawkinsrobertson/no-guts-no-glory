@@ -16,6 +16,10 @@ interface ScoreSnapshotDao {
     @Query("SELECT * FROM score_snapshots ORDER BY date DESC LIMIT :limit")
     fun observeRecent(limit: Int): Flow<List<ScoreSnapshotEntity>>
 
+    /** One-shot range read for the PDF report - no need to stay subscribed for that. */
+    @Query("SELECT * FROM score_snapshots WHERE date BETWEEN :start AND :end ORDER BY date ASC")
+    suspend fun getBetween(start: LocalDate, end: LocalDate): List<ScoreSnapshotEntity>
+
     @Query("SELECT * FROM score_snapshots ORDER BY date DESC LIMIT 1")
     fun observeLatest(): Flow<ScoreSnapshotEntity?>
 

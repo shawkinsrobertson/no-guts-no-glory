@@ -3,6 +3,7 @@ package com.shawkinsrobertson.noguts.ui.settings
 import android.app.TimePickerDialog
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shawkinsrobertson.noguts.data.datastore.ThemeMode
 import com.shawkinsrobertson.noguts.data.db.entity.FactorEntity
+import com.shawkinsrobertson.noguts.data.repository.ReportDateRange
 import com.shawkinsrobertson.noguts.notifications.ReminderScheduler
 import com.shawkinsrobertson.noguts.scoring.FactorCategory
 import com.shawkinsrobertson.noguts.scoring.InputType
@@ -60,7 +64,12 @@ fun SettingsScreen() {
     val container = LocalAppContainer.current
     val viewModel: SettingsViewModel = viewModel(
         factory = SimpleViewModelFactory {
-            SettingsViewModel(container.userPreferencesRepository, container.factorRepository, container.csvExportRepository)
+            SettingsViewModel(
+                container.userPreferencesRepository,
+                container.factorRepository,
+                container.csvExportRepository,
+                container.pdfReportRepository
+            )
         }
     )
     val uiState by viewModel.uiState.collectAsState()
@@ -75,6 +84,17 @@ fun SettingsScreen() {
         }
         context.startActivity(Intent.createChooser(intent, "Export your data"))
         viewModel.shareHandled()
+    }
+
+    LaunchedEffect(uiState.pendingReportUri) {
+        val uri = uiState.pendingReportUri ?: return@LaunchedEffect
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "application/pdf"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(Intent.createChooser(intent, "Share your report"))
+        viewModel.reportHandled()
     }
 
     if (uiState.loading) return
@@ -304,10 +324,43 @@ private fun AppearanceSection(uiState: SettingsUiState, viewModel: SettingsViewM
 
 @Composable
 private fun DataSection(uiState: SettingsUiState, viewModel: SettingsViewModel) {
+    var rangeMenuExpanded by remember { mutableStateOf(false) }
+
     SectionCard("Data") {
         Button(onClick = viewModel::exportCsv, enabled = !uiState.isExporting) {
             Text("Export CSV")
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "The raw numbers behind every day, for your own records or a spreadsheet.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+        Box {
+            Button(onClick = { rangeMenuExpanded = true }, enabled = !uiState.isExportingReport) {
+                Text("Export report (PDF)")
+            }
+            DropdownMenu(expanded = rangeMenuExpanded, onDismissRequest = { rangeMenuExpanded = false }) {
+                ReportDateRange.entries.forEach { range ->
+                    DropdownMenuItem(
+                        text = { Text(range.label) },
+                        onClick = {
+                            rangeMenuExpanded = false
+                            viewModel.exportReport(range)
+                        }
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "A trend chart, a table for the range you pick, and your most common factors - " +
+                "something to actually read or print, not just import.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

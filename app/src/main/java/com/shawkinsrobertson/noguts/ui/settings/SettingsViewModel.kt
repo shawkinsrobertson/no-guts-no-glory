@@ -8,6 +8,8 @@ import com.shawkinsrobertson.noguts.data.datastore.UserPreferencesRepository
 import com.shawkinsrobertson.noguts.data.db.entity.FactorEntity
 import com.shawkinsrobertson.noguts.data.repository.CsvExportRepository
 import com.shawkinsrobertson.noguts.data.repository.FactorRepository
+import com.shawkinsrobertson.noguts.data.repository.PdfReportRepository
+import com.shawkinsrobertson.noguts.data.repository.ReportDateRange
 import com.shawkinsrobertson.noguts.scoring.FactorCategory
 import com.shawkinsrobertson.noguts.scoring.InputType
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,13 +35,16 @@ data class SettingsUiState(
     val factors: List<FactorEntity> = emptyList(),
     val isExporting: Boolean = false,
     val pendingShareUris: List<Uri>? = null,
+    val isExportingReport: Boolean = false,
+    val pendingReportUri: Uri? = null,
     val message: String? = null
 )
 
 class SettingsViewModel(
     private val userPreferencesRepository: UserPreferencesRepository,
     private val factorRepository: FactorRepository,
-    private val csvExportRepository: CsvExportRepository
+    private val csvExportRepository: CsvExportRepository,
+    private val pdfReportRepository: PdfReportRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -61,6 +66,8 @@ class SettingsViewModel(
                 factors = factors.sortedWith(compareBy({ it.category }, { it.sortOrder }, { it.name })),
                 isExporting = _uiState.value.isExporting,
                 pendingShareUris = _uiState.value.pendingShareUris,
+                isExportingReport = _uiState.value.isExportingReport,
+                pendingReportUri = _uiState.value.pendingReportUri,
                 message = _uiState.value.message
             )
         }.onEach { _uiState.value = it }.launchIn(viewModelScope)
@@ -123,5 +130,17 @@ class SettingsViewModel(
 
     fun shareHandled() {
         _uiState.value = _uiState.value.copy(pendingShareUris = null)
+    }
+
+    fun exportReport(range: ReportDateRange) {
+        _uiState.value = _uiState.value.copy(isExportingReport = true)
+        viewModelScope.launch {
+            val uri = pdfReportRepository.exportToShareableUri(range)
+            _uiState.value = _uiState.value.copy(isExportingReport = false, pendingReportUri = uri)
+        }
+    }
+
+    fun reportHandled() {
+        _uiState.value = _uiState.value.copy(pendingReportUri = null)
     }
 }

@@ -67,8 +67,21 @@ class DailyLogRepository(
     suspend fun getSelectionStatsSince(date: LocalDate): List<FactorSelectionStat> =
         dailyLogFactorDao.getSelectionStatsSince(date)
 
+    suspend fun getSelectionStatsBetween(start: LocalDate, end: LocalDate): List<FactorSelectionStat> =
+        dailyLogFactorDao.getSelectionStatsBetween(start, end)
+
     suspend fun countLoggedBetween(start: LocalDate, end: LocalDate): Int =
         dailyLogDao.countLoggedBetween(start, end)
+
+    /** One-shot range reads for the PDF report - see [getAllLoggedDaysOnce]/[getAllSnapshotsOnce]
+     * for the same idea over the full history instead of a bounded range. */
+    suspend fun getLoggedDaysBetween(start: LocalDate, end: LocalDate): List<LoggedDay> {
+        val factors = factorRepository.allFactors.first()
+        return dailyLogDao.getBetweenWithFactors(start, end).map { it.toLoggedDay(factors) }
+    }
+
+    suspend fun getSnapshotsBetween(start: LocalDate, end: LocalDate): List<ScoreSnapshotEntity> =
+        scoreSnapshotDao.getBetween(start, end)
 
     /** Saves (or overwrites) [date]'s log, then recalculates and stores its score snapshot. */
     suspend fun saveDailyLog(date: LocalDate, inputs: List<FactorLogInput>, notes: String?) {
